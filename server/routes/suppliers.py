@@ -14,7 +14,7 @@ def list_suppliers():
         cur = conn.cursor()
         if status:
             cur.execute(
-                "SELECT * FROM Suppliers WHERE Status = ? ORDER BY SupplierName", status
+                "SELECT * FROM Suppliers WHERE Status = :1 ORDER BY SupplierName", [status]
             )
         else:
             cur.execute("SELECT * FROM Suppliers ORDER BY SupplierName")
@@ -23,7 +23,6 @@ def list_suppliers():
 
 # ── POST /api/suppliers ──────────────────────────────────────────────────────
 @suppliers_bp.route("", methods=["POST"])
-
 def create_supplier():
     data = request.get_json() or {}
     required = ("supplier_name", "email")
@@ -35,51 +34,46 @@ def create_supplier():
 
     with get_db() as conn:
         cur = conn.cursor()
+
+        # Oracle stored procedures are called via BEGIN/END anonymous blocks
+        supplier_id_var  = cur.var(int)
+        application_id_var = cur.var(int)
         cur.execute(
             """
-            EXEC usp_RegisterSupplier
-                @SupplierName  = ?,
-                @Address       = ?,
-                @Phone         = ?,
-                @Email         = ?,
-                @ReviewNotes   = ?,
-                @SupplierID    = ? OUTPUT,
-                @ApplicationID = ? OUTPUT
+            BEGIN
+                usp_RegisterSupplier(
+                    p_SupplierName  => :1,
+                    p_Address       => :2,
+                    p_Phone         => :3,
+                    p_Email         => :4,
+                    p_ReviewNotes   => :5,
+                    p_SupplierID    => :6,
+                    p_ApplicationID => :7
+                );
+            END;
             """,
-            data.get("supplier_name"),
-            data.get("address"),
-            data.get("phone"),
-            data.get("email"),
-            review_notes,
-            0, 0,
+            [
+                data.get("supplier_name"),
+                data.get("address"),
+                data.get("phone"),
+                data.get("email"),
+                review_notes,
+                supplier_id_var,
+                application_id_var,
+            ],
         )
-        # Re-fetch the new supplier using OUTPUT from the proc
+
+        # Re-fetch the inserted supplier row using the OUT param ID
         cur.execute(
-            """
-            INSERT INTO Suppliers (SupplierName, Address, Phone, Email, Status)
-            OUTPUT INSERTED.*
-            VALUES (?, ?, ?, ?, 'Applied')
-            """,
-            data.get("supplier_name"),
-            data.get("address"),
-            data.get("phone"),
-            data.get("email"),
+            "SELECT * FROM Suppliers WHERE SupplierID = :1",
+            [supplier_id_var.getvalue()],
         )
         supplier = row_to_dict(cur)
 
-        # Create application
-        cur.execute(
-            """
-            INSERT INTO SupplierApplications
-                (SupplierID, ApplicationDate, ApprovalStatus, ReviewNotes)
-            OUTPUT INSERTED.ApplicationID
-            VALUES (?, CAST(GETDATE() AS DATE), 'Pending', ?)
-            """,
-            supplier["SupplierID"], review_notes,
-        )
-        app_row = cur.fetchone()
+        # Fetch the application ID returned by the proc
+        supplier["ApplicationID"] = application_id_var.getvalue()
 
-    supplier["ApplicationID"] = app_row[0] if app_row else None
+    conn.commit()
     return created(supplier, "Supplier registered and application submitted")
 
 
@@ -88,15 +82,15 @@ def create_supplier():
 def get_supplier(supplier_id):
     with get_db() as conn:
         cur = conn.cursor()
-        cur.execute("SELECT * FROM Suppliers WHERE SupplierID = ?", supplier_id)
+        cur.execute("SELECT * FROM Suppliers WHERE SupplierID = :1", [supplier_id])
         supplier = row_to_dict(cur)
         if not supplier:
             return not_found("Supplier")
 
         # Applications subform
         cur.execute(
-            "SELECT * FROM SupplierApplications WHERE SupplierID = ? ORDER BY ApplicationDate DESC",
-            supplier_id,
+            "SELECT * FROM SupplierApplications WHERE SupplierID = :1 ORDER BY ApplicationDate DESC",
+            [supplier_id],
         )
         supplier["applications"] = rows_to_dict(cur)
 
@@ -104,9 +98,9 @@ def get_supplier(supplier_id):
         cur.execute(
             """
             SELECT ContractID, ContractNumber, StartDate, EndDate, ContractStatus
-            FROM Contracts WHERE SupplierID = ? ORDER BY StartDate DESC
+            FROM Contracts WHERE SupplierID = :1 ORDER BY StartDate DESC
             """,
-            supplier_id,
+            [supplier_id],
         )
         supplier["contracts"] = rows_to_dict(cur)
 
@@ -119,26 +113,31 @@ def update_supplier(supplier_id):
     data = request.get_json() or {}
     with get_db() as conn:
         cur = conn.cursor()
-        cur.execute("SELECT 1 FROM Suppliers WHERE SupplierID = ?", supplier_id)
+        cur.execute("SELECT 1 FROM Suppliers WHERE SupplierID = :1", [supplier_id])
         if not cur.fetchone():
             return not_found("Supplier")
 
+        # Oracle: COALESCE(:bind, column) preserves existing value when param is NULL
         cur.execute(
             """
             UPDATE Suppliers
-            SET SupplierName = ISNULL(?, SupplierName),
-                Address      = ISNULL(?, Address),
-                Phone        = ISNULL(?, Phone),
-                Email        = ISNULL(?, Email)
-            WHERE SupplierID = ?
+            SET SupplierName = COALESCE(:1, SupplierName),
+                Address      = COALESCE(:2, Address),
+                Phone        = COALESCE(:3, Phone),
+                Email        = COALESCE(:4, Email)
+            WHERE SupplierID = :5
             """,
-            data.get("supplier_name"),
-            data.get("address"),
-            data.get("phone"),
-            data.get("email"),
-            supplier_id,
+            [
+                data.get("supplier_name"),
+                data.get("address"),
+                data.get("phone"),
+                data.get("email"),
+                supplier_id,
+            ],
         )
-        cur.execute("SELECT * FROM Suppliers WHERE SupplierID = ?", supplier_id)
+        conn.commit()
+
+        cur.execute("SELECT * FROM Suppliers WHERE SupplierID = :1", [supplier_id])
         updated = row_to_dict(cur)
 
     return success(updated, "Supplier updated")
@@ -150,11 +149,12 @@ def update_supplier(supplier_id):
 def delete_supplier(supplier_id):
     with get_db() as conn:
         cur = conn.cursor()
-        cur.execute("SELECT 1 FROM Suppliers WHERE SupplierID = ?", supplier_id)
+        cur.execute("SELECT 1 FROM Suppliers WHERE SupplierID = :1", [supplier_id])
         if not cur.fetchone():
             return not_found("Supplier")
         try:
-            cur.execute("DELETE FROM Suppliers WHERE SupplierID = ?", supplier_id)
+            cur.execute("DELETE FROM Suppliers WHERE SupplierID = :1", [supplier_id])
+            conn.commit()
         except Exception as e:
             return error(str(e), 409)
 
@@ -173,24 +173,37 @@ def approve_supplier(supplier_id):
 
     with get_db() as conn:
         cur = conn.cursor()
-        # Get the latest pending application for this supplier
+
+        # Oracle: FETCH FIRST 1 ROWS ONLY instead of TOP 1
         cur.execute(
             """
-            SELECT TOP 1 ApplicationID FROM SupplierApplications
-            WHERE SupplierID = ? AND ApprovalStatus = 'Pending'
+            SELECT ApplicationID FROM SupplierApplications
+            WHERE SupplierID = :1 AND ApprovalStatus = 'Pending'
             ORDER BY ApplicationDate DESC
+            FETCH FIRST 1 ROWS ONLY
             """,
-            supplier_id,
+            [supplier_id],
         )
         row = cur.fetchone()
         if not row:
             return error("No pending application found for this supplier", 404)
 
+        # Oracle stored procedure call via anonymous BEGIN/END block
         cur.execute(
-            "EXEC usp_ProcessSupplierApplication @ApplicationID = ?, @Decision = ?, @ReviewNotes = ?",
-            row[0], decision, notes,
+            """
+            BEGIN
+                usp_ProcessSupplierApplication(
+                    p_ApplicationID => :1,
+                    p_Decision      => :2,
+                    p_ReviewNotes   => :3
+                );
+            END;
+            """,
+            [row[0], decision, notes],
         )
-        cur.execute("SELECT * FROM Suppliers WHERE SupplierID = ?", supplier_id)
+        conn.commit()
+
+        cur.execute("SELECT * FROM Suppliers WHERE SupplierID = :1", [supplier_id])
         updated = row_to_dict(cur)
 
     return success(updated, f"Supplier {decision.lower()}")

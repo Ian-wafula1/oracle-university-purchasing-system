@@ -8,21 +8,21 @@ items_bp = Blueprint("items", __name__, url_prefix="/api/items")
 
 # ── GET /api/items ───────────────────────────────────────────────────────────
 @items_bp.route("", methods=["GET"])
-
 def list_items():
     category = request.args.get("category")
     with get_db() as conn:
         cur = conn.cursor()
         if category:
             cur.execute(
-                "SELECT * FROM Items WHERE Category = ? ORDER BY ItemName", category
+                "SELECT * FROM Items WHERE Category = :1 ORDER BY ItemName", [category]
             )
         else:
             cur.execute("SELECT * FROM Items ORDER BY Category, ItemName")
         items = rows_to_dict(cur)
 
-        # Also return distinct categories for dropdown population
-        cur.execute("SELECT DISTINCT Category FROM Items WHERE Category IS NOT NULL ORDER BY Category")
+        cur.execute(
+            "SELECT DISTINCT Category FROM Items WHERE Category IS NOT NULL ORDER BY Category"
+        )
         categories = [r[0] for r in cur.fetchall()]
 
     return success({"items": items, "categories": categories})
@@ -40,17 +40,23 @@ def create_item():
 
     with get_db() as conn:
         cur = conn.cursor()
+        item_id_var = cur.var(int)
         cur.execute(
             """
             INSERT INTO Items (ItemName, Description, Unit, Category)
-            OUTPUT INSERTED.*
-            VALUES (?, ?, ?, ?)
+            VALUES (:1, :2, :3, :4)
+            RETURNING ItemID INTO :5
             """,
-            data["item_name"],
-            data.get("description"),
-            data["unit"],
-            data.get("category"),
+            [
+                data["item_name"],
+                data.get("description"),
+                data["unit"],
+                data.get("category"),
+                item_id_var,
+            ],
         )
+        item_id = item_id_var.getvalue()
+        cur.execute("SELECT * FROM Items WHERE ItemID = :1", [item_id])
         item = row_to_dict(cur)
 
     return created(item, "Item created")
@@ -63,26 +69,28 @@ def update_item(item_id):
     data = request.get_json() or {}
     with get_db() as conn:
         cur = conn.cursor()
-        cur.execute("SELECT 1 FROM Items WHERE ItemID = ?", item_id)
+        cur.execute("SELECT 1 FROM Items WHERE ItemID = :1", [item_id])
         if not cur.fetchone():
             return not_found("Item")
 
         cur.execute(
             """
             UPDATE Items
-            SET ItemName    = ISNULL(?, ItemName),
-                Description = ISNULL(?, Description),
-                Unit        = ISNULL(?, Unit),
-                Category    = ISNULL(?, Category)
-            WHERE ItemID = ?
+            SET ItemName    = NVL(:1, ItemName),
+                Description = NVL(:2, Description),
+                Unit        = NVL(:3, Unit),
+                Category    = NVL(:4, Category)
+            WHERE ItemID    = :5
             """,
-            data.get("item_name"),
-            data.get("description"),
-            data.get("unit"),
-            data.get("category"),
-            item_id,
+            [
+                data.get("item_name"),
+                data.get("description"),
+                data.get("unit"),
+                data.get("category"),
+                item_id,
+            ],
         )
-        cur.execute("SELECT * FROM Items WHERE ItemID = ?", item_id)
+        cur.execute("SELECT * FROM Items WHERE ItemID = :1", [item_id])
         updated = row_to_dict(cur)
 
     return success(updated, "Item updated")
@@ -94,19 +102,18 @@ def update_item(item_id):
 def delete_item(item_id):
     with get_db() as conn:
         cur = conn.cursor()
-        cur.execute("SELECT 1 FROM Items WHERE ItemID = ?", item_id)
+        cur.execute("SELECT 1 FROM Items WHERE ItemID = :1", [item_id])
         if not cur.fetchone():
             return not_found("Item")
 
-        # Guard: item must not have PO history
         cur.execute(
-            "SELECT 1 FROM PurchaseOrderDetails WHERE ItemID = ?", item_id
+            "SELECT 1 FROM PurchaseOrderDetails WHERE ItemID = :1", [item_id]
         )
         if cur.fetchone():
             return error(
                 "Cannot delete an item that appears on existing Purchase Orders", 409
             )
 
-        cur.execute("DELETE FROM Items WHERE ItemID = ?", item_id)
+        cur.execute("DELETE FROM Items WHERE ItemID = :1", [item_id])
 
     return success(message="Item deleted")

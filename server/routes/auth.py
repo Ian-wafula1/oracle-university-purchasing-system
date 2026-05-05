@@ -13,35 +13,44 @@ def register():
     if missing:
         return error(f"Missing fields: {', '.join(missing)}")
 
-    role = data.get("role", "viewer")   # viewer | approver | admin
+    role = data.get("role", "viewer")
     if role not in ("viewer", "approver", "admin"):
         return error("Invalid role. Must be viewer, approver, or admin.")
 
     with get_db() as conn:
         cur = conn.cursor()
 
-        cur.execute("SELECT 1 FROM Users WHERE Username = ?", data["username"])
+        cur.execute("SELECT 1 FROM Users WHERE Username = :1", [data["username"]])
         if cur.fetchone():
             return error("Username already taken", 409)
 
-        cur.execute("SELECT 1 FROM Users WHERE Email = ?", data["email"])
+        cur.execute("SELECT 1 FROM Users WHERE Email = :1", [data["email"]])
         if cur.fetchone():
             return error("Email already registered", 409)
 
         pwd_hash = hash_password(data["password"])
+
+        user_id_var = cur.var(int)
+        username_var = cur.var(str)
+        role_var = cur.var(str)
+
         cur.execute(
             """
             INSERT INTO Users (Username, PasswordHash, Email, FullName, Role)
-            OUTPUT INSERTED.UserID, INSERTED.Username, INSERTED.Role
-            VALUES (?, ?, ?, ?, ?)
+            VALUES (:1, :2, :3, :4, :5)
+            RETURNING UserID, Username, Role INTO :6, :7, :8
             """,
-            data["username"], pwd_hash, data["email"], data["name"], role,
+            [data["username"], pwd_hash, data["email"], data["name"], role,
+             user_id_var, username_var, role_var],
         )
-        row = cur.fetchone()
 
-    token = generate_token(row[0], row[1], row[2])
+        user_id  = user_id_var.getvalue()
+        username = username_var.getvalue()
+        role_out = role_var.getvalue()
+
+    token = generate_token(user_id, username, role_out)
     return created(
-        {"user_id": row[0], "username": row[1], "role": row[2], "token": token},
+        {"user_id": user_id, "username": username, "role": role_out, "token": token},
         "User registered successfully",
     )
 
@@ -54,8 +63,8 @@ def login():
     with get_db() as conn:
         cur = conn.cursor()
         cur.execute(
-            "SELECT UserID, Username, PasswordHash, Role, IsActive FROM Users WHERE Email = ?",
-            data["email"],
+            "SELECT UserID, Username, PasswordHash, Role, IsActive FROM Users WHERE Email = :1",
+            [data["email"]],
         )
         user = row_to_dict(cur)
 
@@ -79,8 +88,8 @@ def me():
     with get_db() as conn:
         cur = conn.cursor()
         cur.execute(
-            "SELECT UserID, Username, Email, FullName, Role, CreatedAt FROM Users WHERE UserID = ?",
-            uid,
+            "SELECT UserID, Username, Email, FullName, Role, CreatedAt FROM Users WHERE UserID = :1",
+            [uid],
         )
         user = row_to_dict(cur)
     if not user:
@@ -88,7 +97,6 @@ def me():
     return success(user)
 
 @auth_bp.route("/change-password", methods=["POST"])
-
 def change_password():
     data = request.get_json() or {}
     if not data.get("old_password") or not data.get("new_password"):
@@ -97,12 +105,14 @@ def change_password():
     uid = request.current_user["sub"]
     with get_db() as conn:
         cur = conn.cursor()
-        cur.execute("SELECT PasswordHash FROM Users WHERE UserID = ?", uid)
+        cur.execute("SELECT PasswordHash FROM Users WHERE UserID = :1", [uid])
         row = cur.fetchone()
         if not row or not check_password(data["old_password"], row[0]):
             return error("Current password is incorrect", 401)
 
         new_hash = hash_password(data["new_password"])
-        cur.execute("UPDATE Users SET PasswordHash = ? WHERE UserID = ?", new_hash, uid)
+        cur.execute(
+            "UPDATE Users SET PasswordHash = :1 WHERE UserID = :2", [new_hash, uid]
+        )
 
     return success(message="Password changed successfully")

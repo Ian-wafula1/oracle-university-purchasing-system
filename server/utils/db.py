@@ -1,4 +1,4 @@
-import pyodbc
+import oracledb
 import os
 from contextlib import contextmanager
 from dotenv import load_dotenv
@@ -6,25 +6,25 @@ from dotenv import load_dotenv
 load_dotenv()
 
 DB_CONFIG = {
-    "server":   os.getenv("DB_SERVER", "localhost"),
-    "database": os.getenv("DB_NAME",   "SupplierDB"),
-    "username": os.getenv("DB_USER",   "appuser"),
+    "host":     os.getenv("DB_HOST", "localhost"),
+    "port":     int(os.getenv("DB_PORT", 1521)),
+    "service":  os.getenv("DB_SERVICE", "ORCLPDB1"),
+    "username": os.getenv("DB_USER", "appuser"),
     "password": os.getenv("DB_PASSWORD", "12345"),
-    "driver":   os.getenv("DB_DRIVER", "ODBC Driver 18 for SQL Server"),
 }
 
 def get_connection():
-    conn_str = (
-        f"DRIVER={{{DB_CONFIG['driver']}}};"
-        f"SERVER={DB_CONFIG['server']},1433;"
-        f"DATABASE={DB_CONFIG['database']};"
-        f"UID={DB_CONFIG['username']};"
-        f"PWD={DB_CONFIG['password']};"
-        "Encrypt=yes;"
-        "TrustServerCertificate=yes;"
+    dsn = oracledb.makedsn(
+        DB_CONFIG["host"],
+        DB_CONFIG["port"],
+        service_name=DB_CONFIG["service"]
     )
-    return pyodbc.connect(conn_str)
 
+    return oracledb.connect(
+        user=DB_CONFIG["username"],
+        password=DB_CONFIG["password"],
+        dsn=dsn
+    )
 
 @contextmanager
 def get_db():
@@ -41,13 +41,11 @@ def get_db():
 
 
 def rows_to_dict(cursor):
-    """Convert pyodbc rows to a list of dicts."""
-    columns = [col[0] for col in cursor.description]
+    columns = [col[0].lower() for col in cursor.description]
     return [dict(zip(columns, row)) for row in cursor.fetchall()]
 
 
 def row_to_dict(cursor):
-    """Convert a single pyodbc row to a dict, or None."""
-    columns = [col[0] for col in cursor.description]
+    columns = [col[0].lower() for col in cursor.description]
     row = cursor.fetchone()
     return dict(zip(columns, row)) if row else None

@@ -8,7 +8,6 @@ reports_bp = Blueprint("reports", __name__, url_prefix="/api/reports")
 
 # ── /api/reports/active-contracts ───────────────────────────────────────────
 @reports_bp.route("/active-contracts", methods=["GET"])
-
 def active_contracts():
     with get_db() as conn:
         cur = conn.cursor()
@@ -18,7 +17,6 @@ def active_contracts():
 
 # ── /api/reports/invoice-totals ─────────────────────────────────────────────
 @reports_bp.route("/invoice-totals", methods=["GET"])
-
 def invoice_totals():
     supplier_id = request.args.get("supplier_id")
     year        = request.args.get("year")
@@ -28,10 +26,10 @@ def invoice_totals():
         query = "SELECT * FROM Invoice_Totals_Report WHERE 1 = 1"
         params = []
         if supplier_id:
-            query += " AND SupplierID = ?"
+            query += " AND SupplierID = :1"
             params.append(supplier_id)
         if year:
-            query += " AND InvoiceYear = ?"
+            query += f" AND InvoiceYear = :{len(params) + 1}"
             params.append(year)
 
         query += " ORDER BY SupplierName, InvoiceYear, InvoiceMonth"
@@ -41,15 +39,14 @@ def invoice_totals():
 
 # ── /api/reports/item-usage ──────────────────────────────────────────────────
 @reports_bp.route("/item-usage", methods=["GET"])
-
 def item_usage():
     category = request.args.get("category")
     with get_db() as conn:
         cur = conn.cursor()
         if category:
             cur.execute(
-                "SELECT * FROM Item_Usage_Report WHERE Category = ? ORDER BY TotalAmountSpent DESC",
-                category,
+                "SELECT * FROM Item_Usage_Report WHERE Category = :1 ORDER BY TotalAmountSpent DESC",
+                [category],
             )
         else:
             cur.execute(
@@ -60,7 +57,6 @@ def item_usage():
 
 # ── /api/reports/monthly-expenditure ────────────────────────────────────────
 @reports_bp.route("/monthly-expenditure", methods=["GET"])
-
 def monthly_expenditure():
     year = request.args.get("year")
     with get_db() as conn:
@@ -69,10 +65,10 @@ def monthly_expenditure():
             cur.execute(
                 """
                 SELECT * FROM Monthly_Expenditure_Report
-                
+                WHERE PaymentYear = :1
                 ORDER BY PaymentYear, PaymentMonth
                 """,
-                
+                [year],
             )
         else:
             cur.execute(
@@ -83,7 +79,6 @@ def monthly_expenditure():
 
 # ── /api/reports/open-orders ─────────────────────────────────────────────────
 @reports_bp.route("/open-orders", methods=["GET"])
-
 def open_orders():
     overdue_only = request.args.get("overdue_only", "false").lower() == "true"
     with get_db() as conn:
@@ -101,7 +96,6 @@ def open_orders():
 
 # ── /api/reports/unpaid-invoices ─────────────────────────────────────────────
 @reports_bp.route("/unpaid-invoices", methods=["GET"])
-
 def unpaid_invoices():
     overdue_only = request.args.get("overdue_only", "false").lower() == "true"
     with get_db() as conn:
@@ -119,15 +113,14 @@ def unpaid_invoices():
 
 # ── /api/reports/supplier-performance ───────────────────────────────────────
 @reports_bp.route("/supplier-performance", methods=["GET"])
-
 def supplier_performance():
     rating = request.args.get("rating")
     with get_db() as conn:
         cur = conn.cursor()
         if rating:
             cur.execute(
-                "SELECT * FROM Supplier_Performance_Report WHERE PerformanceRating = ? ORDER BY SupplierName",
-                rating,
+                "SELECT * FROM Supplier_Performance_Report WHERE PerformanceRating = :1 ORDER BY SupplierName",
+                [rating],
             )
         else:
             cur.execute(
@@ -138,7 +131,6 @@ def supplier_performance():
 
 # ── /api/reports/payment-history ─────────────────────────────────────────────
 @reports_bp.route("/payment-history", methods=["GET"])
-
 def payment_history():
     supplier_id = request.args.get("supplier_id")
     year        = request.args.get("year")
@@ -149,13 +141,14 @@ def payment_history():
         query = "SELECT * FROM Payment_History_Report WHERE 1 = 1"
         params = []
         if supplier_id:
-            query += " AND SupplierID = ?"
+            query += " AND SupplierID = :1"
             params.append(supplier_id)
         if year:
-            query += " AND YEAR(PaymentDate) = ?"
+            # Oracle: EXTRACT(YEAR FROM date_col) instead of SQL Server's YEAR()
+            query += f" AND EXTRACT(YEAR FROM PaymentDate) = :{len(params) + 1}"
             params.append(year)
         if timeliness:
-            query += " AND PaymentTimeliness = ?"
+            query += f" AND PaymentTimeliness = :{len(params) + 1}"
             params.append(timeliness)
 
         query += " ORDER BY PaymentDate DESC"

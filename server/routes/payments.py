@@ -34,12 +34,15 @@ def list_payments():
             WHERE 1 = 1
         """
         params = []
+        bind_idx = 1
         if invoice_id:
-            query += " AND p.InvoiceID = ?"
+            query += f" AND p.InvoiceID = :{bind_idx}"
             params.append(invoice_id)
+            bind_idx += 1
         if supplier_id:
-            query += " AND po.SupplierID = ?"
+            query += f" AND po.SupplierID = :{bind_idx}"
             params.append(supplier_id)
+            bind_idx += 1
 
         query += " ORDER BY p.PaymentDate DESC"
         cur.execute(query, params)
@@ -56,7 +59,6 @@ def create_payment():
     if missing:
         return error(f"Missing required fields: {', '.join(missing)}")
 
-    # Validate payment method dropdown
     if data["payment_method"] not in VALID_METHODS:
         return error(
             f"Invalid payment method. Must be one of: {', '.join(VALID_METHODS)}"
@@ -69,10 +71,9 @@ def create_payment():
     with get_db() as conn:
         cur = conn.cursor()
 
-        # Validate invoice
         cur.execute(
-            "SELECT InvoiceAmount, Status FROM Invoices WHERE InvoiceID = ?",
-            data["invoice_id"],
+            "SELECT InvoiceAmount, Status FROM Invoices WHERE InvoiceID = :1",
+            [data["invoice_id"]],
         )
         invoice = cur.fetchone()
         if not invoice:
@@ -82,54 +83,64 @@ def create_payment():
         if invoice[1] == "Disputed":
             return error("Cannot pay a disputed invoice. Resolve the dispute first.", 422)
 
-        # Check outstanding balance
         cur.execute(
             """
-            SELECT ISNULL(SUM(AmountPaid), 0)
+            SELECT NVL(SUM(AmountPaid), 0)
             FROM Payments
-            WHERE InvoiceID = ? AND Status = 'Completed'
+            WHERE InvoiceID = :1 AND Status = 'Completed'
             """,
-            data["invoice_id"],
+            [data["invoice_id"]],
         )
         already_paid = float(cur.fetchone()[0])
         outstanding  = float(invoice[0]) - already_paid
 
-        if amount > outstanding + 0.01:  # tiny float tolerance
+        if amount > outstanding + 0.01:
             return error(
                 f"Payment of {amount:.2f} exceeds outstanding balance of {outstanding:.2f}",
                 422,
             )
 
         # Insert payment
+        payment_id_var = cur.var(int)
         cur.execute(
             """
             INSERT INTO Payments
                 (InvoiceID, PaymentDate, AmountPaid, PaymentMethod, ReferenceNumber, Status)
-            OUTPUT INSERTED.*
-            VALUES (?, CAST(GETDATE() AS DATE), ?, ?, ?, 'Completed')
+            VALUES (:1, TRUNC(SYSDATE), :2, :3, :4, 'Completed')
+            RETURNING PaymentID INTO :5
             """,
-            data["invoice_id"],
-            amount,
-            data["payment_method"],
-            data["reference_number"],
+            [
+                data["invoice_id"],
+                amount,
+                data["payment_method"],
+                data["reference_number"],
+                payment_id_var,
+            ],
         )
+        payment_id = payment_id_var.getvalue()
+        cur.execute("SELECT * FROM Payments WHERE PaymentID = :1", [payment_id])
         payment = row_to_dict(cur)
-        payment_id = payment["PaymentID"]
 
         # Auto-generate receipt
         from datetime import datetime
         receipt_number = f"RCP-{datetime.now().year}-{str(payment_id).zfill(4)}"
+        receipt_id_var = cur.var(int)
         cur.execute(
             """
             INSERT INTO Receipts (PaymentID, ReceiptNumber, ReceiptDate, ReceivedBy, Notes)
-            OUTPUT INSERTED.*
-            VALUES (?, ?, CAST(GETDATE() AS DATE), ?, ?)
+            VALUES (:1, :2, TRUNC(SYSDATE), :3, :4)
+            RETURNING ReceiptID INTO :5
             """,
-            payment_id,
-            receipt_number,
-            data["received_by"],
-            data.get("notes"),
+            [
+                payment_id,
+                receipt_number,
+                data["received_by"],
+                data.get("notes"),
+                receipt_id_var,
+            ],
         )
+        receipt_id = receipt_id_var.getvalue()
+        cur.execute("SELECT * FROM Receipts WHERE ReceiptID = :1", [receipt_id])
         payment["receipt"] = row_to_dict(cur)
 
     return created(payment, "Payment recorded and receipt generated")
@@ -137,7 +148,6 @@ def create_payment():
 
 # ── GET /api/payments/<id> ───────────────────────────────────────────────────
 @payments_bp.route("/<int:payment_id>", methods=["GET"])
-
 def get_payment(payment_id):
     with get_db() as conn:
         cur = conn.cursor()
@@ -154,9 +164,9 @@ def get_payment(payment_id):
             JOIN PurchaseOrders po ON po.POID       = i.POID
             JOIN Suppliers s       ON s.SupplierID  = po.SupplierID
             LEFT JOIN Receipts r   ON r.PaymentID   = p.PaymentID
-            WHERE p.PaymentID = ?
+            WHERE p.PaymentID = :1
             """,
-            payment_id,
+            [payment_id],
         )
         payment = row_to_dict(cur)
         if not payment:
@@ -165,8 +175,7 @@ def get_payment(payment_id):
     return success(payment)
 
 
-# ── GET  /api/payments/methods  (helper for dropdowns) ───────────────────────
+# ── GET /api/payments/methods  (helper for dropdowns) ────────────────────────
 @payments_bp.route("/methods", methods=["GET"])
-
 def payment_methods():
     return success(list(VALID_METHODS))

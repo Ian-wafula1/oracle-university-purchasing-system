@@ -11,6 +11,7 @@ python-dotenv = "*"
 werkzeug = "*"
 pyjwt = "*"
 bcrypt = "*"
+oracledb = "*"
 
 [dev-packages]
 

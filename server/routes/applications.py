@@ -16,10 +16,10 @@ def list_applications():
                 SELECT sa.*, s.SupplierName, s.Email, s.Phone
                 FROM SupplierApplications sa
                 JOIN Suppliers s ON s.SupplierID = sa.SupplierID
-                WHERE sa.ApprovalStatus = ?
+                WHERE sa.ApprovalStatus = :1
                 ORDER BY sa.ApplicationDate DESC
                 """,
-                status,
+                [status],
             )
         else:
             cur.execute(
@@ -41,7 +41,7 @@ def create_application():
     with get_db() as conn:
         cur = conn.cursor()
         cur.execute(
-            "SELECT Status FROM Suppliers WHERE SupplierID = ?", data["supplier_id"]
+            "SELECT Status FROM Suppliers WHERE SupplierID = :1", [data["supplier_id"]]
         )
         supplier = cur.fetchone()
         if not supplier:
@@ -51,9 +51,9 @@ def create_application():
         cur.execute(
             """
             SELECT 1 FROM SupplierApplications
-            WHERE SupplierID = ? AND ApprovalStatus = 'Pending'
+            WHERE SupplierID = :1 AND ApprovalStatus = 'Pending'
             """,
-            data["supplier_id"],
+            [data["supplier_id"]],
         )
         if cur.fetchone():
             return error("This supplier already has a pending application", 409)
@@ -62,11 +62,15 @@ def create_application():
             """
             INSERT INTO SupplierApplications
                 (SupplierID, ApplicationDate, ApprovalStatus, ReviewNotes)
-            OUTPUT INSERTED.*
-            VALUES (?, CAST(GETDATE() AS DATE), 'Pending', ?)
+            VALUES (:1, TRUNC(SYSDATE), 'Pending', :2)
+            RETURNING ApplicationID INTO :3
             """,
-            data["supplier_id"],
-            data.get("review_notes"),
+            [data["supplier_id"], data.get("review_notes"), cur.var(int)],
+        )
+        new_id = cur.bindvars[2].getvalue()
+
+        cur.execute(
+            "SELECT * FROM SupplierApplications WHERE ApplicationID = :1", [new_id]
         )
         application = row_to_dict(cur)
 
@@ -85,25 +89,25 @@ def update_application(application_id):
     with get_db() as conn:
         cur = conn.cursor()
         cur.execute(
-            "SELECT * FROM SupplierApplications WHERE ApplicationID = ?", application_id
+            "SELECT * FROM SupplierApplications WHERE ApplicationID = :1", [application_id]
         )
         app = row_to_dict(cur)
         if not app:
             return not_found("Application")
 
         if decision in ("Approved", "Rejected"):
-            cur.execute(
-                "EXEC usp_ProcessSupplierApplication @ApplicationID = ?, @Decision = ?, @ReviewNotes = ?",
-                application_id, decision, notes,
+            cur.callproc(
+                "usp_ProcessSupplierApplication",
+                [application_id, decision, notes],
             )
         else:
             cur.execute(
                 """
                 UPDATE SupplierApplications
-                SET ReviewNotes = ISNULL(?, ReviewNotes)
-                WHERE ApplicationID = ?
+                SET ReviewNotes = NVL(:1, ReviewNotes)
+                WHERE ApplicationID = :2
                 """,
-                notes, application_id,
+                [notes, application_id],
             )
 
         cur.execute(
@@ -111,9 +115,9 @@ def update_application(application_id):
             SELECT sa.*, s.SupplierName
             FROM SupplierApplications sa
             JOIN Suppliers s ON s.SupplierID = sa.SupplierID
-            WHERE sa.ApplicationID = ?
+            WHERE sa.ApplicationID = :1
             """,
-            application_id,
+            [application_id],
         )
         updated = row_to_dict(cur)
 
