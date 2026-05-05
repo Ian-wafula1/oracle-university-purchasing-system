@@ -1,0 +1,110 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 210 20% 98%;
+    --foreground: 215 25% 15%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 215 25% 15%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 215 25% 15%;
+
+    --primary: 215 70% 38%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 210 20% 95%;
+    --secondary-foreground: 215 25% 15%;
+
+    --muted: 210 15% 93%;
+    --muted-foreground: 215 10% 45%;
+
+    --accent: 175 55% 40%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 214 20% 88%;
+    --input: 214 20% 88%;
+    --ring: 215 70% 38%;
+
+    --radius: 0.5rem;
+
+    --sidebar-background: 215 30% 18%;
+    --sidebar-foreground: 210 20% 85%;
+    --sidebar-primary: 175 55% 50%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 215 25% 24%;
+    --sidebar-accent-foreground: 210 20% 92%;
+    --sidebar-border: 215 25% 25%;
+    --sidebar-ring: 175 55% 50%;
+    --sidebar-muted: 215 15% 35%;
+
+    --success: 152 60% 40%;
+    --success-foreground: 0 0% 100%;
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 100%;
+    --info: 205 80% 50%;
+    --info-foreground: 0 0% 100%;
+  }
+
+  .dark {
+    --background: 215 25% 10%;
+    --foreground: 210 20% 92%;
+    --card: 215 25% 13%;
+    --card-foreground: 210 20% 92%;
+    --popover: 215 25% 13%;
+    --popover-foreground: 210 20% 92%;
+    --primary: 215 70% 50%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 215 20% 18%;
+    --secondary-foreground: 210 20% 92%;
+    --muted: 215 15% 20%;
+    --muted-foreground: 215 10% 55%;
+    --accent: 175 55% 45%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 62% 30%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 215 20% 22%;
+    --input: 215 20% 22%;
+    --ring: 215 70% 50%;
+    --sidebar-background: 215 30% 10%;
+    --sidebar-foreground: 210 20% 80%;
+    --sidebar-primary: 175 55% 45%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 215 25% 16%;
+    --sidebar-accent-foreground: 210 20% 88%;
+    --sidebar-border: 215 25% 18%;
+    --sidebar-ring: 175 55% 45%;
+    --sidebar-muted: 215 15% 28%;
+    --success: 152 60% 35%;
+    --success-foreground: 0 0% 100%;
+    --warning: 38 92% 45%;
+    --warning-foreground: 0 0% 100%;
+    --info: 205 80% 45%;
+    --info-foreground: 0 0% 100%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  }
+}
+
+@layer components {
+  .page-container {
+    @apply p-6 max-w-[1400px] mx-auto;
+  }
+  .kpi-grid {
+    @apply grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4;
+  }
+}

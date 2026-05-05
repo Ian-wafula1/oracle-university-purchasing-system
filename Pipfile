@@ -1,0 +1,18 @@
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[packages]
+flask = "*"
+flask-cors = "*"
+pyodbc = "*"
+python-dotenv = "*"
+werkzeug = "*"
+pyjwt = "*"
+bcrypt = "*"
+
+[dev-packages]
+
+[requires]
+python_version = "3.13"
