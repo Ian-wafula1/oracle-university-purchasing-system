@@ -40,12 +40,18 @@ def get_db():
         conn.close()
 
 
-def rows_to_dict(cursor):
-    columns = [col[0].lower() for col in cursor.description]
-    return [dict(zip(columns, row)) for row in cursor.fetchall()]
+def _cast_value(val):
+    if isinstance(val, oracledb.LOB):
+        return val.read()
+    return val
 
+def rows_to_dict(cursor):
+    cols = [col[0].lower() for col in cursor.description]
+    return [dict(zip(cols, (_cast_value(v) for v in row))) for row in cursor]
 
 def row_to_dict(cursor):
-    columns = [col[0].lower() for col in cursor.description]
     row = cursor.fetchone()
-    return dict(zip(columns, row)) if row else None
+    if not row:
+        return None
+    cols = [col[0].lower() for col in cursor.description]
+    return dict(zip(cols, (_cast_value(v) for v in row)))

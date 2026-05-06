@@ -40,12 +40,12 @@ const PaymentsPage = () => {
   const selectedInvoice = (unpaid as Record<string, unknown>[]).find(i => String(i.InvoiceID) === invoiceId);
 
   const columns: Column<Record<string, unknown>>[] = [
-    { key: 'ReferenceNumber', header: 'Reference' },
-    { key: 'SupplierName', header: 'Supplier' },
-    { key: 'InvoiceNumber', header: 'Invoice' },
-    { key: 'AmountPaid', header: 'Amount', render: (r) => formatCurrency(r.AmountPaid as number) },
-    { key: 'PaymentMethod', header: 'Method' },
-    { key: 'ReceiptNumber', header: 'Receipt' },
+    { key: 'referencenumber', header: 'Reference' },
+    { key: 'suppliername', header: 'Supplier' },
+    { key: 'invoicenumber', header: 'Invoice' },
+    { key: 'amountpaid', header: 'Amount', render: (r) => formatCurrency(r.amountpaid as number) },
+    { key: 'paymentmethod', header: 'Method' },
+    { key: 'receiptnumber', header: 'Receipt' },
   ];
 
   return (

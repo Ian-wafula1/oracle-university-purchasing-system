@@ -2,6 +2,7 @@ from flask import Blueprint, request
 from utils.db import get_db, rows_to_dict, row_to_dict
 from utils.auth import login_required, roles_required
 from utils.responses import success, created, error, not_found
+import oracledb
 
 contracts_bp = Blueprint("contracts", __name__, url_prefix="/api/contracts")
 
@@ -13,12 +14,19 @@ def list_contracts():
         cur = conn.cursor()
         query = """
             SELECT
-                c.*,
+                c.ContractID,
+                c.SupplierID,
+                c.ContractNumber,
+                c.StartDate,
+                c.EndDate,
+                c.ContractStatus,
+                c.SignedDate,
+                TO_CHAR(c.Notes)                          AS Notes,
                 s.SupplierName,
                 COUNT(ci.ContractItemID)                  AS TotalItems,
                 TRUNC(c.EndDate) - TRUNC(SYSDATE)         AS DaysUntilExpiry
             FROM Contracts c
-            JOIN Suppliers s        ON s.SupplierID  = c.SupplierID
+            JOIN Suppliers s           ON s.SupplierID  = c.SupplierID
             LEFT JOIN ContractItems ci ON ci.ContractID = c.ContractID
             WHERE 1 = 1
         """
@@ -32,7 +40,7 @@ def list_contracts():
 
         query += """
             GROUP BY c.ContractID, c.SupplierID, c.ContractNumber, c.StartDate,
-                     c.EndDate, c.ContractStatus, c.SignedDate, c.Notes, s.SupplierName
+                     c.EndDate, c.ContractStatus, c.SignedDate, TO_CHAR(c.Notes), s.SupplierName
             ORDER BY c.StartDate DESC
         """
         cur.execute(query, params)
@@ -62,7 +70,7 @@ def create_contract():
         if data["start_date"] >= data["end_date"]:
             return error("EndDate must be after StartDate")
 
-        contract_id_var = cur.var(__import__("cx_Oracle").NUMBER)
+        contract_id_var = cur.var(oracledb.NUMBER)
         cur.execute(
             """
             INSERT INTO Contracts
@@ -149,7 +157,7 @@ def update_contract(contract_id):
                 EndDate        = NVL(:3, EndDate),
                 ContractStatus = NVL(:4, ContractStatus),
                 SignedDate     = NVL(:5, SignedDate),
-                Notes          = NVL(:6, Notes)
+                Notes          = CASE WHEN :6 IS NOT NULL THEN TO_CLOB(:6) ELSE Notes END
             WHERE ContractID = :7
             """,
             [
@@ -213,7 +221,7 @@ def add_contract_item(contract_id):
         if cur.fetchone():
             return error("This item is already on this contract", 409)
 
-        ci_id_var = cur.var(__import__("cx_Oracle").NUMBER)
+        ci_id_var = cur.var(oracledb.NUMBER)
         cur.execute(
             """
             INSERT INTO ContractItems (ContractID, ItemID, AgreedPrice, IsActive)

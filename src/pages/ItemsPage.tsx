@@ -50,10 +50,10 @@ const ItemsPage = () => {
     .filter(i => categoryFilter === 'All' || i.Category === categoryFilter);
 
   const columns: Column<Record<string, unknown>>[] = [
-    { key: 'ItemName', header: 'Name' },
-    { key: 'Category', header: 'Category' },
-    { key: 'Unit', header: 'Unit' },
-    { key: 'Description', header: 'Description' },
+    { key: 'itemname', header: 'Name' },
+    { key: 'category', header: 'Category' },
+    { key: 'unit', header: 'Unit' },
+    { key: 'description', header: 'Description' },
     {
       key: '_actions', header: 'Actions', render: (r) => (
         <div className="flex gap-1">

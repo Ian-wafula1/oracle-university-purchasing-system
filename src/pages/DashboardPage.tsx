@@ -18,38 +18,37 @@ const DashboardPage = () => {
 	const overdueOrders = data?.overdue_orders || [];
 	const overdueInvoices = data?.overdue_invoices || [];
 	const topSuppliers = data?.top_suppliers || [];
-	console.log(data);
 
 	const kpiCards = [
-		{ title: 'Approved Suppliers', value: kpis.ApprovedSuppliers ?? 0, icon: Users },
-		{ title: 'Active Contracts', value: kpis.ActiveContracts ?? 0, icon: FileSignature },
-		{ title: 'Expiring Soon', value: kpis.ContractsExpiringSoon ?? 0, icon: Clock },
-		{ title: 'Pending Orders', value: kpis.PendingOrders ?? 0, icon: ShoppingCart },
-		{ title: 'Overdue Orders', value: kpis.OverdueOrders ?? 0, icon: AlertCircle },
-		{ title: 'Unprocessed Invoices', value: kpis.UnprocessedInvoices ?? 0, icon: Receipt },
-		{ title: 'Outstanding Balance', value: formatCurrency(kpis.TotalOutstanding), icon: Wallet },
-		{ title: 'Payments This Month', value: formatCurrency(kpis.PaymentsThisMonth), icon: CreditCard },
+		{ title: 'Approved Suppliers', value: kpis.approvedsuppliers ?? 0, icon: Users },
+		{ title: 'Active Contracts', value: kpis.activecontracts ?? 0, icon: FileSignature },
+		{ title: 'Expiring Soon', value: kpis.contractsexpiringsoon ?? 0, icon: Clock },
+		{ title: 'Pending Orders', value: kpis.pendingorders ?? 0, icon: ShoppingCart },
+		{ title: 'Overdue Orders', value: kpis.overdueorders ?? 0, icon: AlertCircle },
+		{ title: 'Unprocessed Invoices', value: kpis.unprocessedinvoices ?? 0, icon: Receipt },
+		{ title: 'Outstanding Balance', value: formatCurrency(kpis.totaloutstanding), icon: Wallet },
+		{ title: 'Payments This Month', value: formatCurrency(kpis.paymentsthismonth), icon: CreditCard },
 	];
 
 	const contractCols: Column<Record<string, unknown>>[] = [
-		{ key: 'ContractNumber', header: 'Contract' },
-		{ key: 'SupplierName', header: 'Supplier' },
-		{ key: 'EndDate', header: 'End Date', render: (r) => formatDate(r.EndDate as string) },
-		{ key: 'DaysUntilExpiry', header: 'Days Left', render: (r) => <span className={Number(r.DaysUntilExpiry) <= 30 ? 'text-destructive font-semibold' : ''}>{String(r.DaysUntilExpiry)}</span> },
+		{ key: 'contractnumber', header: 'Contract' },
+		{ key: 'suppliername', header: 'Supplier' },
+		{ key: 'enddate', header: 'End Date', render: (r) => formatDate(r.enddate as string) },
+		{ key: 'daysuntilexpiry', header: 'Days Left', render: (r) => <span className={Number(r.daysuntilexpiry) <= 30 ? 'text-destructive font-semibold' : ''}>{String(r.daysuntilexpiry)}</span> },
 	];
 
 	const orderCols: Column<Record<string, unknown>>[] = [
-		{ key: 'POID', header: 'PO#' },
-		{ key: 'SupplierName', header: 'Supplier' },
-		{ key: 'ExpectedDate', header: 'Expected', render: (r) => formatDate(r.ExpectedDate as string) },
-		{ key: 'OverdueDays', header: 'Overdue Days' },
+		{ key: 'poid', header: 'PO#' },
+		{ key: 'suppliername', header: 'Supplier' },
+		{ key: 'expecteddate', header: 'Expected', render: (r) => formatDate(r.expecteddate as string) },
+		{ key: 'overduedays', header: 'Overdue Days' },
 	];
 
 	const invoiceCols: Column<Record<string, unknown>>[] = [
-		{ key: 'InvoiceNumber', header: 'Invoice' },
-		{ key: 'SupplierName', header: 'Supplier' },
-		{ key: 'BalanceOutstanding', header: 'Balance', render: (r) => formatCurrency(r.BalanceOutstanding as number) },
-		{ key: 'DaysOverdue', header: 'Overdue' },
+		{ key: 'invoicenumber', header: 'Invoice' },
+		{ key: 'suppliername', header: 'Supplier' },
+		{ key: 'invoiceamount', header: 'Amount', render: (r) => formatCurrency(r.invoiceamount as number) },
+		{ key: 'daysoverdue', header: 'Overdue' },
 	];
 
 	return (
@@ -72,8 +71,8 @@ const DashboardPage = () => {
 								<BarChart
 									data={monthlyExpenditure
 										.map((item) => ({
-											month: `${item.MonthName.slice(0, 3)} ${item.Year}`,
-											amount: parseFloat(item.TotalPaid),
+											month: `${item.monthname.trim().slice(0, 3)} ${item.year}`,
+											amount: parseFloat(item.totalpaid),
 										}))
 										.reverse()}>
 									<CartesianGrid strokeDasharray="3 3" className="stroke-border" />
@@ -82,7 +81,7 @@ const DashboardPage = () => {
 									<Tooltip formatter={(value: number) => [`KES ${value.toLocaleString()}`, 'Total Paid']} />
 									<Bar dataKey="amount" fill="hsl(215 70% 38%)" radius={[4, 4, 0, 0]} />
 								</BarChart>
-							</ResponsiveContainer>  
+							</ResponsiveContainer>
 						</div>
 					</CardContent>
 				</Card>
@@ -124,8 +123,8 @@ const DashboardPage = () => {
 									{topSuppliers.length === 0 && <p className="text-sm text-muted-foreground">No data</p>}
 									{topSuppliers.map((s: Record<string, unknown>, i: number) => (
 										<div key={i} className="flex items-center justify-between">
-											<span className="text-sm font-medium">{String(s.SupplierName)}</span>
-											<span className="text-sm text-muted-foreground">{formatCurrency(s.TotalSpend as number)}</span>
+											<span className="text-sm font-medium">{String(s.suppliername)}</span>
+											<span className="text-sm text-muted-foreground">{formatCurrency(s.totalspend as number)}</span>
 										</div>
 									))}
 								</div>

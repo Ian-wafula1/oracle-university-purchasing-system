@@ -16,31 +16,31 @@ import {
 } from '@/components/ui/select';
 
 type SupplierPerformanceRow = {
-  ActiveContracts:   number;
-  DeliveredOrders:   number;
-  DisputedInvoices:  number;
-  ExpiredContracts:  number;
-  OnTimeDeliveries:  number;
-  OpenOrders:        number;
-  PerformanceRating: string;
-  SupplierID:        number;
-  SupplierName:      string;
-  SupplierStatus:    string;
-  TotalInvoiced:     string;
-  TotalInvoices:     number;
-  TotalOrders:       number;
-  TotalOutstanding:  string;
-  TotalPaid:         string;
+  activecontracts:   number;
+  deliveredorders:   number;
+  disputedinvoices:  number;
+  expiredcontracts:  number;
+  ontimedeliveries:  number;
+  openorders:        number;
+  performancerating: string;
+  supplierid:        number;
+  suppliername:      string;
+  supplierstatus:    string;
+  totalinvoiced:     number;
+  totalinvoices:     number;
+  totalorders:       number;
+  totaloutstanding:  number;
+  totalpaid:         number;
 };
 
 const RATINGS = ['All', 'Excellent', 'Good', 'Needs Improvement', 'Review Needed'];
 
 const RatingBadge = ({ rating }: { rating: string }) => {
   const styles: Record<string, string> = {
-    'Excellent':        'bg-emerald-500/10 text-emerald-700',
-    'Good':             'bg-blue-500/10 text-blue-700',
-    'Needs Improvement':'bg-amber-500/10 text-amber-700',
-    'Review Needed':    'bg-destructive/10 text-destructive',
+    'Excellent':         'bg-emerald-500/10 text-emerald-700',
+    'Good':              'bg-blue-500/10 text-blue-700',
+    'Needs Improvement': 'bg-amber-500/10 text-amber-700',
+    'Review Needed':     'bg-destructive/10 text-destructive',
   };
   return (
     <Badge variant="secondary" className={`border-0 ${styles[rating] ?? 'bg-muted text-muted-foreground'}`}>
@@ -66,35 +66,33 @@ const DeliveryBar = ({ delivered, total }: { delivered: number; total: number })
 const SupplierPerformanceReport = () => {
   const [rating, setRating] = useState('All');
 
-  const { data = [], isLoading } = useQuery({
+  const { data, isLoading } = useQuery({
     queryKey: ['report-supplier-perf'],
     queryFn:  () => getSupplierPerformance({}),
   });
 
+  // API returns a plain array directly
   const rows = (Array.isArray(data) ? data : []) as SupplierPerformanceRow[];
 
-  // Client-side filter
   const filteredRows = useMemo(() =>
-    rating === 'All' ? rows : rows.filter((r) => r.PerformanceRating === rating),
+    rating === 'All' ? rows : rows.filter((r) => r.performancerating === rating),
   [rows, rating]);
 
-  // Summary counts per rating
   const ratingCounts = useMemo(() =>
     RATINGS.slice(1).reduce((acc, r) => {
-      acc[r] = rows.filter((row) => row.PerformanceRating === r).length;
+      acc[r] = rows.filter((row) => row.performancerating === r).length;
       return acc;
     }, {} as Record<string, number>),
   [rows]);
 
-  // Grand totals for footer
   const totals = useMemo(() => ({
-    orders:      filteredRows.reduce((s, r) => s + r.TotalOrders,                         0),
-    delivered:   filteredRows.reduce((s, r) => s + r.DeliveredOrders,                     0),
-    onTime:      filteredRows.reduce((s, r) => s + r.OnTimeDeliveries,                    0),
-    invoiced:    filteredRows.reduce((s, r) => s + parseFloat(r.TotalInvoiced),            0),
-    paid:        filteredRows.reduce((s, r) => s + parseFloat(r.TotalPaid),                0),
-    outstanding: filteredRows.reduce((s, r) => s + parseFloat(r.TotalOutstanding),        0),
-    disputed:    filteredRows.reduce((s, r) => s + r.DisputedInvoices,                    0),
+    orders:      filteredRows.reduce((s, r) => s + r.totalorders,      0),
+    delivered:   filteredRows.reduce((s, r) => s + r.deliveredorders,  0),
+    onTime:      filteredRows.reduce((s, r) => s + r.ontimedeliveries, 0),
+    invoiced:    filteredRows.reduce((s, r) => s + r.totalinvoiced,    0),
+    paid:        filteredRows.reduce((s, r) => s + r.totalpaid,        0),
+    outstanding: filteredRows.reduce((s, r) => s + r.totaloutstanding, 0),
+    disputed:    filteredRows.reduce((s, r) => s + r.disputedinvoices, 0),
   }), [filteredRows]);
 
   return (
@@ -193,71 +191,67 @@ const SupplierPerformanceReport = () => {
                 </tr>
               ) : (
                 filteredRows.map((r) => {
-                  const outstanding  = parseFloat(r.TotalOutstanding);
-                  const noActivity   = r.TotalOrders === 0 && r.TotalInvoices === 0;
-                  const rowBg        =
-                    r.DisputedInvoices > 0 ? 'bg-destructive/5' :
-                    outstanding > 0        ? 'bg-amber-500/5'   :
-                    noActivity             ? 'opacity-60'       : '';
+                  const noActivity = r.totalorders === 0 && r.totalinvoices === 0;
+                  const rowBg =
+                    r.disputedinvoices > 0  ? 'bg-destructive/5' :
+                    r.totaloutstanding > 0  ? 'bg-amber-500/5'   :
+                    noActivity              ? 'opacity-60'       : '';
 
                   return (
                     <tr
-                      key={r.SupplierID}
+                      key={r.supplierid}
                       className={`border-b transition-colors hover:bg-muted/40 ${rowBg}`}
                     >
                       <td className="px-4 py-3">
-                        <span className="font-medium">{r.SupplierName}</span>
+                        <span className="font-medium">{r.suppliername}</span>
                         {noActivity && (
                           <span className="ml-2 text-xs text-muted-foreground italic">no activity</span>
                         )}
                       </td>
                       <td className="px-4 py-3 text-center">
-                        <RatingBadge rating={r.PerformanceRating} />
+                        <RatingBadge rating={r.performancerating} />
                       </td>
                       <td className="px-4 py-3 text-center">
-                        <span className="text-emerald-600 font-medium">{r.ActiveContracts}</span>
+                        <span className="text-emerald-600 font-medium">{r.activecontracts}</span>
                         <span className="text-muted-foreground"> active</span>
-                        {r.ExpiredContracts > 0 && (
+                        {r.expiredcontracts > 0 && (
                           <span className="text-muted-foreground text-xs block">
-                            {r.ExpiredContracts} expired
+                            {r.expiredcontracts} expired
                           </span>
                         )}
                       </td>
                       <td className="px-4 py-3">
-                        <DeliveryBar
-                          delivered={r.DeliveredOrders}
-                          total={r.TotalOrders}
-                        />
+                        <DeliveryBar delivered={r.deliveredorders} total={r.totalorders} />
                       </td>
                       <td className="px-4 py-3 text-center">
-                        {r.TotalOrders > 0 ? (
-                          <span className={r.OnTimeDeliveries === r.DeliveredOrders ? 'text-emerald-600 font-medium' : 'text-amber-600 font-medium'}>
-                            {r.OnTimeDeliveries}
+                        {r.totalorders > 0 ? (
+                          <span className={r.ontimedeliveries === r.deliveredorders ? 'text-emerald-600 font-medium' : 'text-amber-600 font-medium'}>
+                            {r.ontimedeliveries}
                           </span>
                         ) : (
                           <span className="text-muted-foreground">—</span>
                         )}
                       </td>
                       <td className="px-4 py-3 text-center">
-                        {r.DisputedInvoices > 0 ? (
-                          <span className="text-destructive font-medium">{r.DisputedInvoices}</span>
+                        {r.disputedinvoices > 0 ? (
+                          <span className="text-destructive font-medium">{r.disputedinvoices}</span>
                         ) : (
                           <span className="text-muted-foreground">—</span>
                         )}
                       </td>
                       <td className="px-4 py-3 text-right text-muted-foreground">
-                        {parseFloat(r.TotalInvoiced) > 0
-                          ? formatCurrency(parseFloat(r.TotalInvoiced))
+                        {r.totalinvoiced > 0
+                          ? formatCurrency(r.totalinvoiced)
                           : <span className="text-muted-foreground">—</span>}
                       </td>
                       <td className="px-4 py-3 text-right font-medium">
-                        {parseFloat(r.TotalPaid) > 0
-                          ? formatCurrency(parseFloat(r.TotalPaid))
+                        {r.totalpaid > 0
+                          ? formatCurrency(r.totalpaid)
                           : <span className="text-muted-foreground">—</span>}
                       </td>
                       <td className="px-4 py-3 text-right">
-                        {outstanding > 0 ? (
-                          <span className="text-amber-600 font-medium">{formatCurrency(outstanding)}</span>
+                        {r.totaloutstanding > 0 ? (
+                          <span className="text-amber-600 font-medium">{formatCurrency(r.totaloutstanding)}</span>
                         ) : (
                           <span className="text-muted-foreground">—</span>
                         )}

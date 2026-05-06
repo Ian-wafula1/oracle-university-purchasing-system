@@ -16,13 +16,20 @@ def list_purchase_orders():
         cur = conn.cursor()
         query = """
             SELECT
-                po.*,
+                po.POID,
+                po.SupplierID,
+                po.PODate,
+                po.ExpectedDate,
+                po.Status,
+                po.CreatedBy,
+                po.ApprovedBy,
+                TO_CHAR(po.Notes)           AS Notes,
                 s.SupplierName,
                 COUNT(pod.PODetailID)       AS TotalLineItems,
                 SUM(pod.TotalPrice)         AS OrderTotal,
                 CASE
                     WHEN po.ExpectedDate < TRUNC(SYSDATE)
-                         AND po.Status IN ('Pending','Approved')
+                        AND po.Status IN ('Pending','Approved')
                     THEN TRUNC(SYSDATE) - po.ExpectedDate
                     ELSE 0
                 END AS OverdueDays
@@ -44,7 +51,7 @@ def list_purchase_orders():
 
         query += """
             GROUP BY po.POID, po.SupplierID, po.PODate, po.ExpectedDate,
-                     po.Status, po.CreatedBy, po.ApprovedBy, po.Notes, s.SupplierName
+                    po.Status, po.CreatedBy, po.ApprovedBy, TO_CHAR(po.Notes), s.SupplierName
             ORDER BY po.PODate DESC
         """
         cur.execute(query, params)

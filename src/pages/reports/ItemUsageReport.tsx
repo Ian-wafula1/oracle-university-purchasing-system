@@ -26,19 +26,19 @@ import {
 } from 'recharts';
 
 type ItemUsageRow = {
-  AverageUnitPrice:    string;
-  Category:            string;
-  FirstOrderDate:      string;
-  HighestUnitPrice:    string;
-  ItemID:              number;
-  ItemName:            string;
-  LastOrderDate:       string;
-  LowestUnitPrice:     string;
-  TimesPurchased:      number;
-  TotalAmountSpent:    string;
-  TotalQuantityOrdered:number;
-  UniqueSuppliers:     number;
-  Unit:                string;
+  averageunitprice:     number;
+  category:             string;
+  firstorderdate:       string;
+  highestunitprice:     number;
+  itemid:               number;
+  itemname:             string;
+  lastorderdate:        string;
+  lowestunitprice:      number;
+  timespurchased:       number;
+  totalamountspent:     number;
+  totalquantityordered: number;
+  uniquesuppliers:      number;
+  unit:                 string;
 };
 
 const CATEGORY_COLOURS: Record<string, string> = {
@@ -48,6 +48,15 @@ const CATEGORY_COLOURS: Record<string, string> = {
   'Electrical':  'bg-amber-500/10 text-amber-700',
   'Furniture':   'bg-orange-500/10 text-orange-700',
   'Safety':      'bg-red-500/10 text-red-700',
+};
+
+const CATEGORY_HSL: Record<string, string> = {
+  'IT Supplies': '215 70% 38%',
+  'Hygiene':     '152 60% 40%',
+  'Stationery':  '262 52% 47%',
+  'Electrical':  '38 92% 50%',
+  'Furniture':   '24 90% 50%',
+  'Safety':      '0 72% 51%',
 };
 
 const CategoryBadge = ({ category }: { category: string }) => (
@@ -62,51 +71,36 @@ const CategoryBadge = ({ category }: { category: string }) => (
 const ItemUsageReport = () => {
   const [category, setCategory] = useState('all');
 
-  const { data = [], isLoading } = useQuery({
+  const { data: rows = [], isLoading } = useQuery<ItemUsageRow[]>({
     queryKey: ['report-item-usage'],
     queryFn:  () => getItemUsage({}),
   });
 
-  const rows = (Array.isArray(data) ? data : []) as ItemUsageRow[];
-
-  // Derive categories from data
   const categories = useMemo(() =>
-    [...new Set(rows.map((r) => r.Category))].sort(),
+    [...new Set(rows.map((r) => r.category))].sort(),
   [rows]);
 
-  // Filtered rows
   const filteredRows = useMemo(() =>
     category === 'all'
       ? rows
-      : rows.filter((r) => r.Category === category),
+      : rows.filter((r) => r.category === category),
   [rows, category]);
 
-  // Chart data — top 12 by spend, truncate name for readability
   const chartData = useMemo(() =>
     [...filteredRows]
-      .sort((a, b) => parseFloat(b.TotalAmountSpent) - parseFloat(a.TotalAmountSpent))
+      .sort((a, b) => b.totalamountspent - a.totalamountspent)
       .slice(0, 12)
       .map((r) => ({
-        name:  r.ItemName.length > 22 ? r.ItemName.slice(0, 22) + '…' : r.ItemName,
-        Spent: parseFloat(r.TotalAmountSpent),
-        fill:  CATEGORY_COLOURS[r.Category]
-          ? `hsl(${
-              r.Category === 'IT Supplies' ? '215 70% 38%' :
-              r.Category === 'Hygiene'     ? '152 60% 40%' :
-              r.Category === 'Stationery'  ? '262 52% 47%' :
-              r.Category === 'Electrical'  ? '38 92% 50%'  :
-              r.Category === 'Furniture'   ? '24 90% 50%'  :
-                                             '0 72% 51%'
-            })`
-          : 'hsl(215 70% 38%)',
+        name:  r.itemname.length > 22 ? r.itemname.slice(0, 22) + '…' : r.itemname,
+        Spent: r.totalamountspent,
+        fill:  `hsl(${CATEGORY_HSL[r.category] ?? '215 70% 38%'})`,
       })),
   [filteredRows]);
 
-  // Grand totals
   const totals = useMemo(() => ({
-    spent:     filteredRows.reduce((s, r) => s + parseFloat(r.TotalAmountSpent),     0),
-    qty:       filteredRows.reduce((s, r) => s + r.TotalQuantityOrdered,             0),
-    purchases: filteredRows.reduce((s, r) => s + r.TimesPurchased,                   0),
+    spent:     filteredRows.reduce((s, r) => s + r.totalamountspent,     0),
+    qty:       filteredRows.reduce((s, r) => s + r.totalquantityordered, 0),
+    purchases: filteredRows.reduce((s, r) => s + r.timespurchased,       0),
   }), [filteredRows]);
 
   return (
@@ -118,7 +112,6 @@ const ItemUsageReport = () => {
           breadcrumbs={['Reports', 'Item Usage']}
         />
 
-        {/* Filters */}
         <div className="flex flex-wrap gap-4 items-end">
           <div>
             <Label className="text-xs mb-1 block">Category</Label>
@@ -137,7 +130,6 @@ const ItemUsageReport = () => {
           <ExportCSV data={filteredRows} filename="item-usage" />
         </div>
 
-        {/* Summary pills */}
         {!isLoading && filteredRows.length > 0 && (
           <div className="flex flex-wrap gap-2">
             <Badge variant="secondary">
@@ -155,7 +147,6 @@ const ItemUsageReport = () => {
           </div>
         )}
 
-        {/* Chart */}
         {chartData.length > 0 && (
           <Card>
             <CardHeader>
@@ -187,7 +178,7 @@ const ItemUsageReport = () => {
                     <Tooltip
                       formatter={(value: number) => [formatCurrency(value), 'Total Spent']}
                     />
-                    <Bar dataKey="Spent" radius={[0, 4, 4, 0]}>
+                    <Bar dataKey="Spent" radius={[0, 4, 4, 0]} fill="hsl(215 70% 38%)">
                       {chartData.map((entry, i) => (
                         <rect key={i} fill={entry.fill} />
                       ))}
@@ -199,7 +190,6 @@ const ItemUsageReport = () => {
           </Card>
         )}
 
-        {/* Table */}
         <div className="rounded-md border overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
@@ -237,52 +227,42 @@ const ItemUsageReport = () => {
                 </tr>
               ) : (
                 filteredRows.map((r) => {
-                  const low  = parseFloat(r.LowestUnitPrice);
-                  const high = parseFloat(r.HighestUnitPrice);
-                  const priceVariance = high > low;
-
+                  const priceVariance = r.highestunitprice > r.lowestunitprice;
                   return (
-                    <tr
-                      key={r.ItemID}
-                      className="border-b transition-colors hover:bg-muted/40"
-                    >
-                      <td className="px-4 py-3 font-medium">{r.ItemName}</td>
+                    <tr key={r.itemid} className="border-b transition-colors hover:bg-muted/40">
+                      <td className="px-4 py-3 font-medium">{r.itemname}</td>
                       <td className="px-4 py-3">
-                        <CategoryBadge category={r.Category} />
+                        <CategoryBadge category={r.category} />
                       </td>
-                      <td className="px-4 py-3 text-muted-foreground text-xs">{r.Unit}</td>
-                      <td className="px-4 py-3 text-right">
-                        {r.TotalQuantityOrdered.toLocaleString()}
-                      </td>
+                      <td className="px-4 py-3 text-muted-foreground text-xs">{r.unit}</td>
+                      <td className="px-4 py-3 text-right">{r.totalquantityordered.toLocaleString()}</td>
+                      <td className="px-4 py-3 text-right text-muted-foreground">{r.timespurchased}</td>
                       <td className="px-4 py-3 text-right text-muted-foreground">
-                        {r.TimesPurchased}
-                      </td>
-                      <td className="px-4 py-3 text-right text-muted-foreground">
-                        {formatCurrency(parseFloat(r.AverageUnitPrice))}
+                        {formatCurrency(r.averageunitprice)}
                       </td>
                       <td className="px-4 py-3 text-right">
                         {priceVariance ? (
                           <span className="text-amber-600 text-xs">
-                            {formatCurrency(low)} – {formatCurrency(high)}
+                            {formatCurrency(r.lowestunitprice)} – {formatCurrency(r.highestunitprice)}
                           </span>
                         ) : (
                           <span className="text-muted-foreground text-xs">
-                            {formatCurrency(low)}
+                            {formatCurrency(r.lowestunitprice)}
                           </span>
                         )}
                       </td>
                       <td className="px-4 py-3 text-right">
-                        {r.UniqueSuppliers > 1 ? (
-                          <span className="text-blue-600 font-medium">{r.UniqueSuppliers}</span>
+                        {r.uniquesuppliers > 1 ? (
+                          <span className="text-blue-600 font-medium">{r.uniquesuppliers}</span>
                         ) : (
-                          <span className="text-muted-foreground">{r.UniqueSuppliers}</span>
+                          <span className="text-muted-foreground">{r.uniquesuppliers}</span>
                         )}
                       </td>
                       <td className="px-4 py-3 text-right font-semibold">
-                        {formatCurrency(parseFloat(r.TotalAmountSpent))}
+                        {formatCurrency(r.totalamountspent)}
                       </td>
                       <td className="px-4 py-3 text-muted-foreground text-xs">
-                        {formatDate(r.LastOrderDate)}
+                        {formatDate(r.lastorderdate)}
                       </td>
                     </tr>
                   );

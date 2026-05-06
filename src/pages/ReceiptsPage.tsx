@@ -11,12 +11,12 @@ const ReceiptsPage = () => {
   const { data: receipts = [], isLoading } = useQuery({ queryKey: ['receipts'], queryFn: () => getReceipts() });
 
   const columns: Column<Record<string, unknown>>[] = [
-    { key: 'ReceiptNumber', header: 'Receipt #' },
-    { key: 'SupplierName', header: 'Supplier' },
-    { key: 'InvoiceNumber', header: 'Invoice' },
-    { key: 'AmountPaid', header: 'Amount', render: (r) => formatCurrency(r.AmountPaid as number) },
-    { key: 'PaymentMethod', header: 'Method' },
-    { key: 'ReceivedBy', header: 'Received By' },
+    { key: 'receiptnumber', header: 'Receipt #' },
+    { key: 'suppliername', header: 'Supplier' },
+    { key: 'invoicenumber', header: 'Invoice' },
+    { key: 'amountpaid', header: 'Amount', render: (r) => formatCurrency(r.amountpaid as number) },
+    { key: 'paymentmethod', header: 'Method' },
+    { key: 'receivedby', header: 'Received By' },
   ];
 
   return (

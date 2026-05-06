@@ -17,16 +17,23 @@ def list_invoices():
         cur = conn.cursor()
         query = """
             SELECT
-                i.*,
+                i.InvoiceID,
+                i.POID,
+                i.InvoiceNumber,
+                i.InvoiceDate,
+                i.InvoiceAmount,
+                i.Status,
+                i.DueDate,
+                TO_CHAR(i.Notes)                                 AS Notes,
                 po.SupplierID,
                 s.SupplierName,
                 NVL(SUM(p.AmountPaid), 0)                        AS TotalPaid,
                 i.InvoiceAmount - NVL(SUM(p.AmountPaid), 0)      AS BalanceOutstanding,
                 CASE WHEN i.DueDate < TRUNC(SYSDATE) AND i.Status != 'Paid'
-                     THEN TRUNC(SYSDATE) - i.DueDate ELSE 0
+                    THEN TRUNC(SYSDATE) - i.DueDate ELSE 0
                 END AS DaysOverdue
             FROM Invoices i
-            JOIN PurchaseOrders po ON po.POID      = i.POID
+            JOIN (SELECT POID, SupplierID FROM PurchaseOrders) po ON po.POID = i.POID
             JOIN Suppliers s       ON s.SupplierID = po.SupplierID
             LEFT JOIN Payments p   ON p.InvoiceID  = i.InvoiceID AND p.Status = 'Completed'
             WHERE 1 = 1
@@ -48,8 +55,11 @@ def list_invoices():
 
         query += """
             GROUP BY i.InvoiceID, i.POID, i.InvoiceNumber, i.InvoiceDate,
-                     i.InvoiceAmount, i.Status, i.DueDate, i.Notes,
-                     po.SupplierID, s.SupplierName
+                     i.InvoiceAmount, i.Status, i.DueDate, TO_CHAR(i.Notes),
+                     po.SupplierID, s.SupplierName,
+                     CASE WHEN i.DueDate < TRUNC(SYSDATE) AND i.Status != 'Paid'
+                          THEN TRUNC(SYSDATE) - i.DueDate ELSE 0
+                     END
             ORDER BY i.InvoiceDate DESC
         """
         cur.execute(query, params)
@@ -131,10 +141,17 @@ def get_invoice(invoice_id):
         cur.execute(
             """
             SELECT
-                i.*,
+                i.InvoiceID,
+                i.POID,
+                i.InvoiceNumber,
+                i.InvoiceDate,
+                i.InvoiceAmount,
+                i.Status,
+                i.DueDate,
+                TO_CHAR(i.Notes)                                 AS Notes,
                 po.SupplierID,
                 s.SupplierName,
-                s.Email AS SupplierEmail,
+                s.Email                                          AS SupplierEmail,
                 NVL(SUM(p.AmountPaid), 0)                        AS TotalPaid,
                 i.InvoiceAmount - NVL(SUM(p.AmountPaid), 0)      AS BalanceOutstanding
             FROM Invoices i
@@ -143,7 +160,7 @@ def get_invoice(invoice_id):
             LEFT JOIN Payments p   ON p.InvoiceID  = i.InvoiceID AND p.Status = 'Completed'
             WHERE i.InvoiceID = :1
             GROUP BY i.InvoiceID, i.POID, i.InvoiceNumber, i.InvoiceDate,
-                     i.InvoiceAmount, i.Status, i.DueDate, i.Notes,
+                     i.InvoiceAmount, i.Status, i.DueDate, TO_CHAR(i.Notes),
                      po.SupplierID, s.SupplierName, s.Email
             """,
             [invoice_id],
@@ -203,7 +220,7 @@ def update_invoice(invoice_id):
                 UPDATE Invoices
                 SET DueDate       = NVL(:1, DueDate),
                     InvoiceAmount = NVL(:2, InvoiceAmount),
-                    Notes         = NVL(:3, Notes)
+                    Notes         = CASE WHEN :3 IS NOT NULL THEN TO_CLOB(:3) ELSE Notes END
                 WHERE InvoiceID   = :4
                 """,
                 [

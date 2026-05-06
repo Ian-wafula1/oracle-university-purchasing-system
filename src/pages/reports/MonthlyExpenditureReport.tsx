@@ -27,64 +27,57 @@ import {
 } from 'recharts';
 
 type ExpenditureRow = {
-  BankTransferTotal: string;
-  CashTotal:         string;
-  ChequeTotal:       string;
-  MonthName:         string;
-  PaymentMonth:      number;
-  PaymentYear:       number;
-  TotalAmountPaid:   string;
-  TotalPayments:     number;
-  UniqueSuppliersPaid: number;
+  banktransfertotal:   number;
+  cashtotal:           number;
+  chequetotal:         number;
+  monthname:           string;
+  paymentmonth:        number;
+  paymentyear:         number;
+  totalamountpaid:     number;
+  totalpayments:       number;
+  uniquesupplierspaid: number;
 };
 
 const MonthlyExpenditureReport = () => {
-  const currentYear = new Date().getFullYear();
   const [year, setYear] = useState('all');
 
-  const { data = [], isLoading } = useQuery({
+  const { data: rows = [], isLoading } = useQuery<ExpenditureRow[]>({
     queryKey: ['report-monthly-expenditure'],
     queryFn:  () => getMonthlyExpenditure({}),
   });
 
-  const rows = (Array.isArray(data) ? data : []) as ExpenditureRow[];
+  const yearOptions = useMemo(() =>
+    [...new Set(rows.map((r) => String(r.paymentyear)))]
+      .sort((a, b) => Number(b) - Number(a)),
+  [rows]);
 
-  // Year options derived from data
-  const yearOptions = useMemo(() => {
-    return [...new Set(rows.map((r) => String(r.PaymentYear)))]
-      .sort((a, b) => Number(b) - Number(a));
-  }, [rows]);
-
-  // Filtered rows
   const filteredRows = useMemo(() => {
-    if (year === 'all') return [...rows].sort((a, b) =>
-      a.PaymentYear !== b.PaymentYear
-        ? a.PaymentYear - b.PaymentYear
-        : a.PaymentMonth - b.PaymentMonth
+    const sorted = year === 'all'
+      ? [...rows]
+      : rows.filter((r) => String(r.paymentyear) === year);
+    return sorted.sort((a, b) =>
+      a.paymentyear !== b.paymentyear
+        ? a.paymentyear - b.paymentyear
+        : a.paymentmonth - b.paymentmonth
     );
-    return rows
-      .filter((r) => String(r.PaymentYear) === year)
-      .sort((a, b) => a.PaymentMonth - b.PaymentMonth);
   }, [rows, year]);
 
-  // Chart data
   const chartData = useMemo(() =>
     filteredRows.map((r) => ({
-      month:           `${r.MonthName.slice(0, 3)} ${r.PaymentYear}`,
-      TotalAmountPaid: parseFloat(r.TotalAmountPaid),
-      BankTransfer:    parseFloat(r.BankTransferTotal),
-      Cheque:          parseFloat(r.ChequeTotal),
-      Cash:            parseFloat(r.CashTotal),
+      month:        `${r.monthname.slice(0, 3)} ${r.paymentyear}`,
+      TotalPaid:    r.totalamountpaid,
+      BankTransfer: r.banktransfertotal,
+      Cheque:       r.chequetotal,
+      Cash:         r.cashtotal,
     })),
   [filteredRows]);
 
-  // Grand totals
   const totals = useMemo(() => ({
-    paid:         filteredRows.reduce((s, r) => s + parseFloat(r.TotalAmountPaid),   0),
-    bankTransfer: filteredRows.reduce((s, r) => s + parseFloat(r.BankTransferTotal), 0),
-    cheque:       filteredRows.reduce((s, r) => s + parseFloat(r.ChequeTotal),       0),
-    cash:         filteredRows.reduce((s, r) => s + parseFloat(r.CashTotal),         0),
-    payments:     filteredRows.reduce((s, r) => s + r.TotalPayments,                 0),
+    paid:         filteredRows.reduce((s, r) => s + r.totalamountpaid,   0),
+    bankTransfer: filteredRows.reduce((s, r) => s + r.banktransfertotal, 0),
+    cheque:       filteredRows.reduce((s, r) => s + r.chequetotal,       0),
+    cash:         filteredRows.reduce((s, r) => s + r.cashtotal,         0),
+    payments:     filteredRows.reduce((s, r) => s + r.totalpayments,     0),
   }), [filteredRows]);
 
   return (
@@ -96,7 +89,6 @@ const MonthlyExpenditureReport = () => {
           breadcrumbs={['Reports', 'Monthly Expenditure']}
         />
 
-        {/* Filters */}
         <div className="flex flex-wrap gap-4 items-end">
           <div>
             <Label className="text-xs mb-1 block">Year</Label>
@@ -115,12 +107,9 @@ const MonthlyExpenditureReport = () => {
           <ExportCSV data={filteredRows} filename={`monthly-expenditure-${year}`} />
         </div>
 
-        {/* Summary pills */}
         {!isLoading && filteredRows.length > 0 && (
           <div className="flex flex-wrap gap-2">
-            <Badge variant="secondary">
-              {totals.payments} payments
-            </Badge>
+            <Badge variant="secondary">{totals.payments} payments</Badge>
             <Badge variant="secondary" className="bg-primary/10 text-primary">
               {formatCurrency(totals.paid)} total spend
             </Badge>
@@ -142,7 +131,6 @@ const MonthlyExpenditureReport = () => {
           </div>
         )}
 
-        {/* Chart */}
         {chartData.length > 0 && (
           <Card>
             <CardHeader>
@@ -171,21 +159,21 @@ const MonthlyExpenditureReport = () => {
                     <Tooltip
                       formatter={(value: number, name: string) => [
                         formatCurrency(value),
-                        name === 'TotalAmountPaid' ? 'Total Paid'
+                        name === 'TotalPaid' ? 'Total Paid'
                           : name === 'BankTransfer' ? 'Bank Transfer'
                           : name,
                       ]}
                     />
                     <Legend
                       formatter={(name) =>
-                        name === 'TotalAmountPaid' ? 'Total Paid'
+                        name === 'TotalPaid' ? 'Total Paid'
                           : name === 'BankTransfer' ? 'Bank Transfer'
                           : name
                       }
                     />
                     <Line
                       type="monotone"
-                      dataKey="TotalAmountPaid"
+                      dataKey="TotalPaid"
                       stroke="hsl(215 70% 38%)"
                       strokeWidth={2}
                       dot={{ r: 3 }}
@@ -228,7 +216,6 @@ const MonthlyExpenditureReport = () => {
           </Card>
         )}
 
-        {/* Table */}
         <div className="rounded-md border overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
@@ -260,47 +247,34 @@ const MonthlyExpenditureReport = () => {
                   </td>
                 </tr>
               ) : (
-                filteredRows.map((r) => {
-                  const bankTransfer = parseFloat(r.BankTransferTotal);
-                  const cheque       = parseFloat(r.ChequeTotal);
-                  const cash         = parseFloat(r.CashTotal);
-                  const total        = parseFloat(r.TotalAmountPaid);
-
-                  return (
-                    <tr
-                      key={`${r.PaymentYear}-${r.PaymentMonth}`}
-                      className="border-b transition-colors hover:bg-muted/40"
-                    >
-                      <td className="px-4 py-3 font-medium">
-                        {r.MonthName} {r.PaymentYear}
-                      </td>
-                      <td className="px-4 py-3 text-right text-muted-foreground">
-                        {r.TotalPayments}
-                      </td>
-                      <td className="px-4 py-3 text-right text-muted-foreground">
-                        {r.UniqueSuppliersPaid}
-                      </td>
-                      <td className="px-4 py-3 text-right">
-                        {bankTransfer > 0
-                          ? <span className="text-blue-600">{formatCurrency(bankTransfer)}</span>
-                          : <span className="text-muted-foreground">—</span>}
-                      </td>
-                      <td className="px-4 py-3 text-right">
-                        {cheque > 0
-                          ? <span className="text-purple-600">{formatCurrency(cheque)}</span>
-                          : <span className="text-muted-foreground">—</span>}
-                      </td>
-                      <td className="px-4 py-3 text-right">
-                        {cash > 0
-                          ? <span className="text-emerald-600">{formatCurrency(cash)}</span>
-                          : <span className="text-muted-foreground">—</span>}
-                      </td>
-                      <td className="px-4 py-3 text-right font-semibold">
-                        {formatCurrency(total)}
-                      </td>
-                    </tr>
-                  );
-                })
+                filteredRows.map((r) => (
+                  <tr
+                    key={`${r.paymentyear}-${r.paymentmonth}`}
+                    className="border-b transition-colors hover:bg-muted/40"
+                  >
+                    <td className="px-4 py-3 font-medium">{r.monthname} {r.paymentyear}</td>
+                    <td className="px-4 py-3 text-right text-muted-foreground">{r.totalpayments}</td>
+                    <td className="px-4 py-3 text-right text-muted-foreground">{r.uniquesupplierspaid}</td>
+                    <td className="px-4 py-3 text-right">
+                      {r.banktransfertotal > 0
+                        ? <span className="text-blue-600">{formatCurrency(r.banktransfertotal)}</span>
+                        : <span className="text-muted-foreground">—</span>}
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      {r.chequetotal > 0
+                        ? <span className="text-purple-600">{formatCurrency(r.chequetotal)}</span>
+                        : <span className="text-muted-foreground">—</span>}
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      {r.cashtotal > 0
+                        ? <span className="text-emerald-600">{formatCurrency(r.cashtotal)}</span>
+                        : <span className="text-muted-foreground">—</span>}
+                    </td>
+                    <td className="px-4 py-3 text-right font-semibold">
+                      {formatCurrency(r.totalamountpaid)}
+                    </td>
+                  </tr>
+                ))
               )}
             </tbody>
 

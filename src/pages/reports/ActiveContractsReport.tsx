@@ -33,24 +33,24 @@ const ActiveContractsReport = () => {
 	};
 
 	const columns: Column<Record<string, unknown>>[] = [
-		{ key: 'ContractNumber', header: 'Contract #' },
-		{ key: 'SupplierName', header: 'Supplier' },
-		{ key: 'SupplierEmail', header: 'Email' },
+		{ key: 'contractnumber', header: 'Contract #' },
+		{ key: 'suppliername', header: 'Supplier' },
+		{ key: 'supplieremail', header: 'Email' },
 		{
-			key: 'TotalItemsCovered',
+			key: 'totalitemscovered',
 			header: 'Items',
-			render: (r) => <span className="text-muted-foreground">{String(r.TotalItemsCovered)}</span>,
+			render: (r) => <span className="text-muted-foreground">{String(r.totalitemscovered)}</span>,
 		},
 		{
-			key: 'ContractStatus',
+			key: 'contractstatus',
 			header: 'Status',
-			render: (r) => <StatusBadge status={String(r.ContractStatus || '')} />,
+			render: (r) => <StatusBadge status={String(r.contractstatus || '')} />,
 		},
 	];
 
-	const expiringSoon = (data as Record<string, unknown>[]).filter((r) => Number(r.DaysUntilExpiry) >= 0 && Number(r.DaysUntilExpiry) <= 30).length;
+	const expiringSoon = (data as Record<string, unknown>[]).filter((r) => Number(r.daysuntilexpiry) >= 0 && Number(r.daysuntilexpiry) <= 30).length;
 
-	const expired = (data as Record<string, unknown>[]).filter((r) => Number(r.DaysUntilExpiry) < 0).length;
+	const expired = (data as Record<string, unknown>[]).filter((r) => Number(r.daysuntilexpiry) < 0).length;
 
 	return (
 		<>

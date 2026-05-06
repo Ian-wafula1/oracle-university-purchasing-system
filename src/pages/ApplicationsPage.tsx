@@ -33,9 +33,13 @@ const ApplicationsPage = () => {
   });
 
   const columns: Column<Record<string, unknown>>[] = [
-    { key: 'SupplierName', header: 'Supplier' },
-    { key: 'ApprovalStatus', header: 'Status', render: (r) => <StatusBadge status={String(r.ApprovalStatus || 'Pending')} /> },
-    { key: 'ReviewNotes', header: 'Notes' },
+    { key: 'suppliername', header: 'Supplier' },
+    { key: 'email', header: 'Email' },
+    { key: 'phone', header: 'Phone' },
+    // { key: 'applicationdate', header: 'Applied On', render: (r) => formatDate(r.applicationdate as string) },
+    // { key: 'approvaldate', header: 'Decision Date', render: (r) => r.approvaldate ? formatDate(r.approvaldate as string) : '—' },
+    { key: 'approvalstatus', header: 'Status', render: (r) => <StatusBadge status={String(r.approvalstatus || 'Pending')} /> },
+    { key: 'reviewnotes', header: 'Notes' },
   ];
 
   return (
@@ -47,7 +51,9 @@ const ApplicationsPage = () => {
           <Select value={statusFilter} onValueChange={setStatusFilter}>
             <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
             <SelectContent>
-              {['All', 'Pending', 'Approved', 'Rejected'].map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+              {['All', 'Pending', 'Approved', 'Rejected'].map(s => (
+                <SelectItem key={s} value={s}>{s}</SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>
@@ -58,19 +64,45 @@ const ApplicationsPage = () => {
           onRowClick={hasRole('approver', 'admin') ? (r) => setEditTarget(r) : undefined}
         />
         <SlideOver open={!!editTarget} onOpenChange={() => setEditTarget(null)} title="Review Application">
-          {editTarget && <ReviewForm target={editTarget} onSubmit={(body) => updateMut.mutate({ id: editTarget.ApplicationID as number, body })} isPending={updateMut.isPending} />}
+          {editTarget && (
+            <ReviewForm
+              target={editTarget}
+              onSubmit={(body) => updateMut.mutate({ id: editTarget.applicationid as number, body })}
+              isPending={updateMut.isPending}
+            />
+          )}
         </SlideOver>
       </div>
     </>
   );
 };
 
-const ReviewForm = ({ target, onSubmit, isPending }: { target: Record<string, unknown>; onSubmit: (b: Record<string, unknown>) => void; isPending: boolean }) => {
-  const [status, setStatus] = useState(String(target.ApprovalStatus || 'Pending'));
+const ReviewForm = ({
+  target,
+  onSubmit,
+  isPending,
+}: {
+  target: Record<string, unknown>;
+  onSubmit: (b: Record<string, unknown>) => void;
+  isPending: boolean;
+}) => {
+  const [status, setStatus] = useState(String(target.approvalstatus || 'Pending'));
   const { register, handleSubmit } = useForm();
+
   return (
-    <form onSubmit={handleSubmit((d) => onSubmit({ ...d, ApprovalStatus: status }))} className="space-y-4">
-      <div className="space-y-2"><Label>Supplier</Label><p className="text-sm">{String(target.SupplierName)}</p></div>
+    <form onSubmit={handleSubmit((d) => onSubmit({ ...d, decision: status }))} className="space-y-4">
+      <div className="space-y-2">
+        <Label>Supplier</Label>
+        <p className="text-sm font-medium">{String(target.suppliername)}</p>
+      </div>
+      <div className="space-y-2">
+        <Label>Email</Label>
+        <p className="text-sm text-muted-foreground">{String(target.email)}</p>
+      </div>
+      <div className="space-y-2">
+        <Label>Applied On</Label>
+        <p className="text-sm text-muted-foreground">{formatDate(target.applicationdate as string)}</p>
+      </div>
       <div className="space-y-2">
         <Label>Decision</Label>
         <Select value={status} onValueChange={setStatus}>
@@ -82,8 +114,13 @@ const ReviewForm = ({ target, onSubmit, isPending }: { target: Record<string, un
           </SelectContent>
         </Select>
       </div>
-      <div className="space-y-2"><Label>Notes</Label><Textarea defaultValue={String(target.ReviewNotes || '')} {...register('ReviewNotes')} /></div>
-      <Button type="submit" className="w-full" disabled={isPending}>{isPending ? 'Saving...' : 'Update'}</Button>
+      <div className="space-y-2">
+        <Label>Notes</Label>
+        <Textarea defaultValue={String(target.reviewnotes || '')} {...register('review_notes')} />
+      </div>
+      <Button type="submit" className="w-full" disabled={isPending}>
+        {isPending ? 'Saving...' : 'Update'}
+      </Button>
     </form>
   );
 };

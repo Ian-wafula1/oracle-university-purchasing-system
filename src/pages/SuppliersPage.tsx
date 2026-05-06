@@ -55,15 +55,15 @@ const SuppliersPage = () => {
   const { register, handleSubmit, reset, formState: { errors } } = useForm();
 
   const filtered = (suppliers as Record<string, unknown>[]).filter((s) =>
-    String(s.SupplierName || '').toLowerCase().includes(search.toLowerCase())
+    String(s.suppliername || '').toLowerCase().includes(search.toLowerCase())
   );
 
   const columns: Column<Record<string, unknown>>[] = [
-    { key: 'SupplierName', header: 'Name' },
-    { key: 'Email', header: 'Email' },
-    { key: 'Phone', header: 'Phone' },
-    { key: 'Status', header: 'Status', render: (r) => <StatusBadge status={String(r.Status || 'Pending')} /> },
-    
+    { key: 'suppliername', header: 'Name' },
+    { key: 'email', header: 'Email' },
+    { key: 'phone', header: 'Phone' },
+    { key: 'status', header: 'Status', render: (r) => <StatusBadge status={String(r.status || 'Pending')} /> },
+
     ...(hasRole('approver', 'admin') ? [{
       key: '_actions' as const,
       header: 'Actions',
@@ -73,7 +73,7 @@ const SuppliersPage = () => {
             Review
           </Button>
           {hasRole('admin') && (
-            <Button size="sm" variant="outline" className="text-destructive" onClick={(e) => { e.stopPropagation(); setDeleteTarget(r.SupplierID as number); }}>
+            <Button size="sm" variant="outline" className="text-destructive" onClick={(e) => { e.stopPropagation(); setDeleteTarget(r.supplierid as number); }}>
               Delete
             </Button>
           )}
@@ -107,22 +107,52 @@ const SuppliersPage = () => {
           </Select>
         </div>
 
-        <DataTable columns={columns} data={filtered} isLoading={isLoading} onRowClick={(r) => navigate(`/suppliers/${r.SupplierID}`)} emptyMessage="No suppliers found" />
+        <DataTable
+          columns={columns}
+          data={filtered}
+          isLoading={isLoading}
+          onRowClick={(r) => navigate(`/suppliers/${r.supplierid}`)}
+          emptyMessage="No suppliers found"
+        />
 
         <SlideOver open={showCreate} onOpenChange={setShowCreate} title="New Supplier">
           <form onSubmit={handleSubmit((d) => createMut.mutate(d))} className="space-y-4">
-            <div className="space-y-2"><Label>Supplier Name</Label><Input {...register('SupplierName', { required: 'Required' })} />{errors.SupplierName && <p className="text-xs text-destructive">{String(errors.SupplierName.message)}</p>}</div>
-            <div className="space-y-2"><Label>Address</Label><Input {...register('Address')} /></div>
-            <div className="space-y-2"><Label>Phone</Label><Input {...register('Phone', { required: 'Required' })} />{errors.Phone && <p className="text-xs text-destructive">{String(errors.Phone.message)}</p>}</div>
-            <div className="space-y-2"><Label>Email</Label><Input type="email" {...register('Email', { required: 'Required' })} />{errors.Email && <p className="text-xs text-destructive">{String(errors.Email.message)}</p>}</div>
-            <div className="space-y-2"><Label>Review Notes</Label><Textarea {...register('ReviewNotes')} /></div>
-            <Button type="submit" className="w-full" disabled={createMut.isPending}>{createMut.isPending ? 'Creating...' : 'Create Supplier'}</Button>
+            <div className="space-y-2">
+              <Label>Supplier Name</Label>
+              <Input {...register('supplier_name', { required: 'Required' })} />
+              {errors.supplier_name && <p className="text-xs text-destructive">{String(errors.supplier_name.message)}</p>}
+            </div>
+            <div className="space-y-2">
+              <Label>Address</Label>
+              <Input {...register('address')} />
+            </div>
+            <div className="space-y-2">
+              <Label>Phone</Label>
+              <Input {...register('phone', { required: 'Required' })} />
+              {errors.phone && <p className="text-xs text-destructive">{String(errors.phone.message)}</p>}
+            </div>
+            <div className="space-y-2">
+              <Label>Email</Label>
+              <Input type="email" {...register('email', { required: 'Required' })} />
+              {errors.email && <p className="text-xs text-destructive">{String(errors.email.message)}</p>}
+            </div>
+            <div className="space-y-2">
+              <Label>Review Notes</Label>
+              <Textarea {...register('review_notes')} />
+            </div>
+            <Button type="submit" className="w-full" disabled={createMut.isPending}>
+              {createMut.isPending ? 'Creating...' : 'Create Supplier'}
+            </Button>
           </form>
         </SlideOver>
 
-        <SlideOver open={!!approveTarget} onOpenChange={() => setApproveTarget(null)} title={`Review: ${approveTarget?.SupplierName || ''}`}>
+        <SlideOver
+          open={!!approveTarget}
+          onOpenChange={() => setApproveTarget(null)}
+          title={`Review: ${approveTarget?.suppliername || ''}`}
+        >
           <ApproveForm
-            onSubmit={(body) => approveMut.mutate({ id: approveTarget?.SupplierID as number, body })}
+            onSubmit={(body) => approveMut.mutate({ id: approveTarget?.supplierid as number, body })}
             isPending={approveMut.isPending}
           />
         </SlideOver>
@@ -146,7 +176,7 @@ const ApproveForm = ({ onSubmit, isPending }: { onSubmit: (body: Record<string, 
   const { register, handleSubmit } = useForm();
 
   return (
-    <form onSubmit={handleSubmit((d) => onSubmit({ ...d, ApprovalStatus: decision }))} className="space-y-4">
+    <form onSubmit={handleSubmit((d) => onSubmit({ ...d, decision }))} className="space-y-4">
       <div className="space-y-2">
         <Label>Decision</Label>
         <Select value={decision} onValueChange={setDecision}>
@@ -157,8 +187,13 @@ const ApproveForm = ({ onSubmit, isPending }: { onSubmit: (body: Record<string, 
           </SelectContent>
         </Select>
       </div>
-      <div className="space-y-2"><Label>Review Notes</Label><Textarea {...register('ReviewNotes')} /></div>
-      <Button type="submit" className="w-full" disabled={isPending}>{isPending ? 'Submitting...' : 'Submit Review'}</Button>
+      <div className="space-y-2">
+        <Label>Review Notes</Label>
+        <Textarea {...register('review_notes')} />
+      </div>
+      <Button type="submit" className="w-full" disabled={isPending}>
+        {isPending ? 'Submitting...' : 'Submit Review'}
+      </Button>
     </form>
   );
 };

@@ -16,30 +16,30 @@ import {
 } from '@/components/ui/select';
 
 type PaymentHistoryRow = {
-  AmountPaid:        string;
-  DaysLate:          number;
-  DaysToPayment:     number;
-  InvoiceAmount:     string;
-  InvoiceID:         number;
-  InvoiceNumber:     string;
-  POID:              number;
-  PaymentDate:       string;
-  PaymentID:         number;
-  PaymentMethod:     string;
-  PaymentStatus:     string;
-  PaymentTimeliness: string;
-  ReceiptDate:       string | null;
-  ReceiptNumber:     string | null;
-  ReceivedBy:        string | null;
-  ReferenceNumber:   string;
-  SupplierID:        number;
-  SupplierName:      string;
+  amountpaid:        number;
+  dayslate:          number;
+  daystopayment:     number;
+  invoiceamount:     number;
+  invoiceid:         number;
+  invoicenumber:     string;
+  poid:              number;
+  paymentdate:       string;
+  paymentid:         number;
+  paymentmethod:     string;
+  paymentstatus:     string;
+  paymenttimeliness: string;
+  receiptdate:       string | null;
+  receiptnumber:     string | null;
+  receivedby:        string | null;
+  referencenumber:   string;
+  supplierid:        number;
+  suppliername:      string;
 };
 
 const TimelinessIndicator = ({ row }: { row: PaymentHistoryRow }) => {
-  const isLate  = row.PaymentTimeliness === 'Late';
-  const isEarly = row.DaysLate < 0;
-  const days    = Math.abs(row.DaysLate);
+  const isLate  = row.paymenttimeliness === 'Late';
+  const isEarly = row.dayslate < 0;
+  const days    = Math.abs(row.dayslate);
 
   if (isLate) {
     return (
@@ -77,52 +77,49 @@ const MethodBadge = ({ method }: { method: string }) => {
 };
 
 const PaymentHistoryReport = () => {
-  const currentYear = new Date().getFullYear();
-  const [year,        setYear]        = useState('all');
-  const [timeliness,  setTimeliness]  = useState('all');
-  const [supplier,    setSupplier]    = useState('all');
+  const [year,       setYear]       = useState('all');
+  const [timeliness, setTimeliness] = useState('all');
+  const [supplier,   setSupplier]   = useState('all');
 
-  const { data = [], isLoading } = useQuery({
+  const { data, isLoading } = useQuery({
     queryKey: ['report-payment-history'],
     queryFn:  () => getPaymentHistory({}),
   });
 
+  // API returns a plain array directly
   const rows = (Array.isArray(data) ? data : []) as PaymentHistoryRow[];
 
-  // Derived filter options
   const yearOptions = useMemo(() =>
-    [...new Set(rows.map((r) => String(new Date(r.PaymentDate).getFullYear())))]
+    [...new Set(rows.map((r) => String(new Date(r.paymentdate).getFullYear())))]
       .sort((a, b) => Number(b) - Number(a)),
   [rows]);
 
   const supplierOptions = useMemo(() => {
     const seen = new Map<number, string>();
-    rows.forEach((r) => seen.set(r.SupplierID, r.SupplierName));
+    rows.forEach((r) => seen.set(r.supplierid, r.suppliername));
     return [...seen.entries()]
       .map(([id, name]) => ({ id, name }))
       .sort((a, b) => a.name.localeCompare(b.name));
   }, [rows]);
 
-  // Filtered + sorted rows
   const filteredRows = useMemo(() => {
     return rows
       .filter((r) => {
-        const rowYear = String(new Date(r.PaymentDate).getFullYear());
-        const yearMatch      = year       === 'all' || rowYear              === year;
-        const timelinessMatch= timeliness === 'all' || r.PaymentTimeliness  === timeliness;
-        const supplierMatch  = supplier   === 'all' || String(r.SupplierID) === supplier;
+        const rowYear        = String(new Date(r.paymentdate).getFullYear());
+        const yearMatch      = year       === 'all' || rowYear             === year;
+        const timelinessMatch= timeliness === 'all' || r.paymenttimeliness === timeliness;
+        const supplierMatch  = supplier   === 'all' || String(r.supplierid) === supplier;
         return yearMatch && timelinessMatch && supplierMatch;
       })
-      .sort((a, b) => new Date(b.PaymentDate).getTime() - new Date(a.PaymentDate).getTime());
+      .sort((a, b) => new Date(b.paymentdate).getTime() - new Date(a.paymentdate).getTime());
   }, [rows, year, timeliness, supplier]);
 
-  // Summary totals
   const totals = useMemo(() => ({
-    totalPaid:   filteredRows.reduce((s, r) => s + parseFloat(r.AmountPaid), 0),
-    onTime:      filteredRows.filter((r) => r.PaymentTimeliness === 'On Time').length,
-    late:        filteredRows.filter((r) => r.PaymentTimeliness === 'Late').length,
-    avgDays:     filteredRows.length
-      ? Math.round(filteredRows.reduce((s, r) => s + r.DaysToPayment, 0) / filteredRows.length)
+    totalPaid: filteredRows.reduce((s, r) => s + r.amountpaid, 0),
+    onTime:    filteredRows.filter((r) => r.paymenttimeliness === 'On Time').length,
+    late:      filteredRows.filter((r) => r.paymenttimeliness === 'Late').length,
+    avgDays:   filteredRows.length
+      ? Math.round(filteredRows.reduce((s, r) => s + r.daystopayment, 0) / filteredRows.length)
       : 0,
   }), [filteredRows]);
 
@@ -218,7 +215,7 @@ const PaymentHistoryReport = () => {
                 <th className="text-right px-4 py-3 font-medium text-muted-foreground">Invoice Amt</th>
                 <th className="text-right px-4 py-3 font-medium text-muted-foreground">Amount Paid</th>
                 <th className="text-left px-4 py-3 font-medium text-muted-foreground">Method</th>
-                <th className="text-left px-4 py-3 font-medium text-muted-foreground">Payment Date</th>
+                {/* <th className="text-left px-4 py-3 font-medium text-muted-foreground">Payment Date</th> */}
                 <th className="text-center px-4 py-3 font-medium text-muted-foreground">Timeliness</th>
                 <th className="text-left px-4 py-3 font-medium text-muted-foreground">Receipt</th>
                 <th className="text-left px-4 py-3 font-medium text-muted-foreground">Received By</th>
@@ -243,49 +240,45 @@ const PaymentHistoryReport = () => {
                 </tr>
               ) : (
                 filteredRows.map((r) => {
-                  const isLate       = r.PaymentTimeliness === 'Late';
-                  const isPartial    = parseFloat(r.AmountPaid) < parseFloat(r.InvoiceAmount);
-                  const rowBg        = isLate ? 'bg-destructive/5' : '';
+                  const isLate    = r.paymenttimeliness === 'Late';
+                  const isPartial = r.amountpaid < r.invoiceamount;
+                  const rowBg     = isLate ? 'bg-destructive/5' : '';
 
                   return (
                     <tr
-                      key={r.PaymentID}
+                      key={r.paymentid}
                       className={`border-b transition-colors hover:bg-muted/40 ${rowBg}`}
                     >
                       <td className="px-4 py-3 font-mono text-xs text-muted-foreground">
-                        {r.ReferenceNumber}
+                        {r.referencenumber}
                       </td>
-                      <td className="px-4 py-3 font-medium">{r.SupplierName}</td>
-                      <td className="px-4 py-3 font-mono text-xs">{r.InvoiceNumber}</td>
+                      <td className="px-4 py-3 font-medium">{r.suppliername}</td>
+                      <td className="px-4 py-3 font-mono text-xs">{r.invoicenumber}</td>
                       <td className="px-4 py-3 text-right text-muted-foreground">
-                        {formatCurrency(parseFloat(r.InvoiceAmount))}
+                        {formatCurrency(r.invoiceamount)}
                       </td>
                       <td className="px-4 py-3 text-right">
                         <span className={isPartial ? 'text-amber-600 font-medium' : 'font-medium'}>
-                          {formatCurrency(parseFloat(r.AmountPaid))}
+                          {formatCurrency(r.amountpaid)}
                         </span>
                         {isPartial && (
                           <span className="block text-xs text-muted-foreground">partial</span>
                         )}
                       </td>
                       <td className="px-4 py-3">
-                        <MethodBadge method={r.PaymentMethod} />
+                        <MethodBadge method={r.paymentmethod} />
                       </td>
-                      <td className="px-4 py-3 text-muted-foreground">
-                        {formatDate(r.PaymentDate)}
-                      </td>
+                      {/* <td className="px-4 py-3 text-muted-foreground">
+                        {formatDate(r.paymentdate)}
+                      </td> */}
                       <td className="px-4 py-3 text-center">
                         <TimelinessIndicator row={r} />
                       </td>
                       <td className="px-4 py-3 font-mono text-xs">
-                        {r.ReceiptNumber ?? (
-                          <span className="text-muted-foreground">—</span>
-                        )}
+                        {r.receiptnumber ?? <span className="text-muted-foreground">—</span>}
                       </td>
                       <td className="px-4 py-3 text-muted-foreground text-xs">
-                        {r.ReceivedBy ?? (
-                          <span className="italic">not recorded</span>
-                        )}
+                        {r.receivedby ?? <span className="italic">not recorded</span>}
                       </td>
                     </tr>
                   );

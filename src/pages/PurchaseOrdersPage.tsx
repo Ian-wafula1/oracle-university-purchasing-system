@@ -50,11 +50,11 @@ const PurchaseOrdersPage = () => {
   };
 
   const columns: Column<Record<string, unknown>>[] = [
-    { key: 'POID', header: 'PO#' },
-    { key: 'SupplierName', header: 'Supplier' },
-    { key: 'Status', header: 'Status', render: (r) => <StatusBadge status={String(r.Status || '')} /> },
-    { key: 'TotalLineItems', header: 'Items' },
-    { key: 'OrderTotal', header: 'Total', render: (r) => formatCurrency(r.OrderTotal as number) },
+    { key: 'poid', header: 'PO#' },
+    { key: 'suppliername', header: 'Supplier' },
+    { key: 'status', header: 'Status', render: (r) => <StatusBadge status={String(r.status || '')} /> },
+    { key: 'totallineitems', header: 'Items' },
+    { key: 'ordertotal', header: 'Total', render: (r) => formatCurrency(r.ordertotal as number) },
   ];
 
   return (

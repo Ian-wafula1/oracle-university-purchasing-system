@@ -36,10 +36,10 @@ const ContractsPage = () => {
   const [supplierId, setSupplierId] = useState('');
 
   const columns: Column<Record<string, unknown>>[] = [
-    { key: 'ContractNumber', header: 'Contract #' },
-    { key: 'SupplierName', header: 'Supplier' },
-    { key: 'ContractStatus', header: 'Status', render: (r) => <StatusBadge status={String(r.ContractStatus || '')} /> },
-    { key: 'TotalItems', header: 'Items' },
+    { key: 'contractnumber', header: 'Contract #' },
+    { key: 'suppliername', header: 'Supplier' },
+    { key: 'contractstatus', header: 'Status', render: (r) => <StatusBadge status={String(r.contractstatus || '')} /> },
+    { key: 'totalitems', header: 'Items' },
   ];
 
   return (

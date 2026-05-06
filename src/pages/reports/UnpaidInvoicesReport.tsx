@@ -10,21 +10,21 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 
 type UnpaidInvoiceRow = {
-  AmountPaid:         string;
-  BalanceOutstanding: string;
-  DaysOverdue:        number;
-  DueDate:            string;
-  InvoiceAmount:      string;
-  InvoiceDate:        string;
-  InvoiceID:          number;
-  InvoiceNumber:      string;
-  Notes:              string | null;
-  OverdueStatus:      string;
-  POID:               number;
-  Status:             string;
-  SupplierEmail:      string;
-  SupplierID:         number;
-  SupplierName:       string;
+  amountpaid:         number;
+  balanceoutstanding: number;
+  daysoverdue:        number;
+  duedate:            string;
+  invoiceamount:      number;
+  invoicedate:        string;
+  invoiceid:          number;
+  invoicenumber:      string;
+  notes:              string | null;
+  overduestatus:      string;
+  poid:               number;
+  status:             string;
+  supplieremail:      string;
+  supplierid:         number;
+  suppliername:       string;
 };
 
 const OverdueBadge = ({ days }: { days: number }) => {
@@ -61,7 +61,7 @@ const UnpaidInvoicesReport = () => {
   const [overdueOnly,  setOverdueOnly]  = useState(false);
   const [statusFilter, setStatusFilter] = useState<'All' | 'Disputed' | 'Received'>('All');
 
-  const { data = [], isLoading } = useQuery({
+  const { data, isLoading } = useQuery({
     queryKey: ['report-unpaid'],
     queryFn:  () => getUnpaidInvoicesReport({}),
   });
@@ -70,19 +70,19 @@ const UnpaidInvoicesReport = () => {
 
   const filteredRows = useMemo(() => {
     return rows.filter((r) => {
-      const overdueMatch = !overdueOnly || r.DaysOverdue > 0;
-      const statusMatch  = statusFilter === 'All' || r.Status === statusFilter;
+      const overdueMatch = !overdueOnly || r.daysoverdue > 0;
+      const statusMatch  = statusFilter === 'All' || r.status === statusFilter;
       return overdueMatch && statusMatch;
     });
   }, [rows, overdueOnly, statusFilter]);
 
   const totals = useMemo(() => ({
-    outstanding: filteredRows.reduce((s, r) => s + parseFloat(r.BalanceOutstanding), 0),
-    invoiced:    filteredRows.reduce((s, r) => s + parseFloat(r.InvoiceAmount),      0),
-    disputed:    filteredRows.filter((r) => r.Status === 'Disputed').length,
-    received:    filteredRows.filter((r) => r.Status === 'Received').length,
+    outstanding: filteredRows.reduce((s, r) => s + r.balanceoutstanding, 0),
+    invoiced:    filteredRows.reduce((s, r) => s + r.invoiceamount,      0),
+    disputed:    filteredRows.filter((r) => r.status === 'Disputed').length,
+    received:    filteredRows.filter((r) => r.status === 'Received').length,
     avgOverdue:  filteredRows.length
-      ? Math.round(filteredRows.reduce((s, r) => s + r.DaysOverdue, 0) / filteredRows.length)
+      ? Math.round(filteredRows.reduce((s, r) => s + r.daysoverdue, 0) / filteredRows.length)
       : 0,
   }), [filteredRows]);
 
@@ -197,53 +197,51 @@ const UnpaidInvoicesReport = () => {
                 </tr>
               ) : (
                 filteredRows.map((r) => {
-                  const outstanding = parseFloat(r.BalanceOutstanding);
-                  const paid        = parseFloat(r.AmountPaid);
-                  const isDisputed  = r.Status === 'Disputed';
-                  const rowBg       = isDisputed
+                  const isDisputed = r.status === 'Disputed';
+                  const rowBg      = isDisputed
                     ? 'bg-destructive/5'
-                    : r.DaysOverdue > 365
+                    : r.daysoverdue > 365
                     ? 'bg-destructive/3'
                     : 'bg-amber-500/5';
 
                   return (
                     <tr
-                      key={r.InvoiceID}
+                      key={r.invoiceid}
                       className={`border-b transition-colors hover:bg-muted/40 ${rowBg}`}
                     >
-                      <td className="px-4 py-3 font-mono text-xs">{r.InvoiceNumber}</td>
+                      <td className="px-4 py-3 font-mono text-xs">{r.invoicenumber}</td>
                       <td className="px-4 py-3">
-                        <span className="font-medium block">{r.SupplierName}</span>
-                        <span className="text-xs text-muted-foreground">{r.SupplierEmail}</span>
+                        <span className="font-medium block">{r.suppliername}</span>
+                        <span className="text-xs text-muted-foreground">{r.supplieremail}</span>
                       </td>
                       <td className="px-4 py-3">
-                        <StatusBadge status={r.Status} />
+                        <StatusBadge status={r.status} />
                       </td>
                       <td className="px-4 py-3 text-muted-foreground">
-                        {formatDate(r.InvoiceDate)}
+                        {formatDate(r.invoicedate)}
                       </td>
                       <td className="px-4 py-3 text-muted-foreground">
-                        {formatDate(r.DueDate)}
+                        {formatDate(r.duedate)}
                       </td>
                       <td className="px-4 py-3 text-right text-muted-foreground">
-                        {formatCurrency(parseFloat(r.InvoiceAmount))}
+                        {formatCurrency(r.invoiceamount)}
                       </td>
                       <td className="px-4 py-3 text-right">
-                        {paid > 0 ? (
-                          <span className="text-emerald-600">{formatCurrency(paid)}</span>
+                        {r.amountpaid > 0 ? (
+                          <span className="text-emerald-600">{formatCurrency(r.amountpaid)}</span>
                         ) : (
                           <span className="text-muted-foreground">—</span>
                         )}
                       </td>
                       <td className="px-4 py-3 text-right font-semibold text-destructive">
-                        {formatCurrency(outstanding)}
+                        {formatCurrency(r.balanceoutstanding)}
                       </td>
                       <td className="px-4 py-3">
-                        <OverdueBadge days={r.DaysOverdue} />
+                        <OverdueBadge days={r.daysoverdue} />
                       </td>
                       <td className="px-4 py-3 text-xs text-muted-foreground max-w-[200px] truncate"
-                          title={r.Notes ?? ''}>
-                        {r.Notes ?? <span className="italic">—</span>}
+                          title={r.notes ?? ''}>
+                        {r.notes ?? <span className="italic">—</span>}
                       </td>
                     </tr>
                   );

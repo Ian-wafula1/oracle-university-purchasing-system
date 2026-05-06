@@ -16,66 +16,66 @@ import { getInvoiceTotals } from '@/api/reports';
 import { formatCurrency } from '@/lib/format';
 
 type InvoiceTotalRow = {
-  DisputedCount: number;
-  InvoiceMonth: number;
-  InvoiceYear: number;
-  MonthName: string;
-  PaidCount: number;
-  ReceivedCount: number;
-  SupplierID: number;
-  SupplierName: string;
-  TotalDisputed: string;
-  TotalInvoiced: string;
-  TotalInvoices: number;
-  TotalOutstanding: string;
-  TotalPaid: string;
+  disputedcount: number;
+  invoicemonth: number;
+  invoiceyear: number;
+  monthname: string;
+  paidcount: number;
+  receivedcount: number;
+  supplierid: number;
+  suppliername: string;
+  totaldisputed: number;
+  totalinvoiced: number;
+  totalinvoices: number;
+  totaloutstanding: number;
+  totalpaid: number;
+};
+
+type ApiResponse = {
+  success: boolean;
+  message: string;
+  data: InvoiceTotalRow[];
 };
 
 const InvoiceTotalsReport = () => {
-  const currentYear = new Date().getFullYear();
-  const [year, setYear]                 = useState('all');
+  const [year, setYear] = useState('all');
   const [supplierFilter, setSupplierFilter] = useState('all');
 
-  const { data = [], isLoading } = useQuery({
+  const { data: responseData, isLoading } = useQuery<ApiResponse>({
     queryKey: ['report-invoice-totals'],
     queryFn: () => getInvoiceTotals({}),
   });
 
-  const rows = (Array.isArray(data) ? data : []) as InvoiceTotalRow[];
+  console.log('responseData', responseData);
 
-  // Year options derived from data
+  const rows: InvoiceTotalRow[] = responseData ?? [];
+
   const yearOptions = useMemo(() => {
-    const years = [...new Set(rows.map((r) => String(r.InvoiceYear)))].sort((a, b) => Number(b) - Number(a));
+    const years = [...new Set(rows.map((r) => String(r.invoiceyear)))].sort((a, b) => Number(b) - Number(a));
     return years;
   }, [rows]);
 
-  // Supplier options derived from data
   const supplierOptions = useMemo(() => {
     const seen = new Map<number, string>();
-    rows.forEach((r) => seen.set(r.SupplierID, r.SupplierName));
+    rows.forEach((r) => seen.set(r.supplierid, r.suppliername));
     return [...seen.entries()].map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name));
   }, [rows]);
 
-  // Filtered rows
   const filteredRows = useMemo(() => {
     return rows.filter((r) => {
-      const yearMatch     = year === 'all'     || String(r.InvoiceYear) === year;
-      const supplierMatch = supplierFilter === 'all' || String(r.SupplierID) === supplierFilter;
+      const yearMatch     = year === 'all'          || String(r.invoiceyear) === year;
+      const supplierMatch = supplierFilter === 'all' || String(r.supplierid) === supplierFilter;
       return yearMatch && supplierMatch;
     });
   }, [rows, year, supplierFilter]);
 
-  // Grand totals
   const totals = useMemo(() => ({
-    invoices:    filteredRows.reduce((s, r) => s + r.TotalInvoices, 0),
-    invoiced:    filteredRows.reduce((s, r) => s + parseFloat(r.TotalInvoiced), 0),
-    paid:        filteredRows.reduce((s, r) => s + parseFloat(r.TotalPaid), 0),
-    outstanding: filteredRows.reduce((s, r) => s + parseFloat(r.TotalOutstanding), 0),
-    disputed:    filteredRows.reduce((s, r) => s + parseFloat(r.TotalDisputed), 0),
+    invoices:    filteredRows.reduce((s, r) => s + r.totalinvoices,    0),
+    invoiced:    filteredRows.reduce((s, r) => s + r.totalinvoiced,    0),
+    paid:        filteredRows.reduce((s, r) => s + r.totalpaid,        0),
+    outstanding: filteredRows.reduce((s, r) => s + r.totaloutstanding, 0),
+    disputed:    filteredRows.reduce((s, r) => s + r.totaldisputed,    0),
   }), [filteredRows]);
-
-  const yearOptions2 = useMemo(() =>
-    Array.from({ length: 5 }, (_, i) => String(currentYear - i)), []);
 
   return (
     <>
@@ -86,7 +86,6 @@ const InvoiceTotalsReport = () => {
           breadcrumbs={['Reports', 'Invoice Totals']}
         />
 
-        {/* Filters */}
         <div className="flex flex-wrap gap-4 items-end">
           <div>
             <Label className="text-xs mb-1 block">Year</Label>
@@ -121,7 +120,6 @@ const InvoiceTotalsReport = () => {
           <ExportCSV data={filteredRows} filename={`invoice-totals-${year}`} />
         </div>
 
-        {/* Summary pills */}
         {!isLoading && filteredRows.length > 0 && (
           <div className="flex flex-wrap gap-2">
             <Badge variant="secondary">{totals.invoices} invoices</Badge>
@@ -144,7 +142,6 @@ const InvoiceTotalsReport = () => {
           </div>
         )}
 
-        {/* Table */}
         <div className="rounded-md border overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
@@ -177,46 +174,44 @@ const InvoiceTotalsReport = () => {
                   </td>
                 </tr>
               ) : (
-                filteredRows.map((r, i) => {
-                  const outstanding = parseFloat(r.TotalOutstanding);
-                  const disputed    = parseFloat(r.TotalDisputed);
-                  const rowBg = disputed > 0
+                filteredRows.map((r) => {
+                  const rowBg = r.totaldisputed > 0
                     ? 'bg-destructive/5'
-                    : outstanding > 0
+                    : r.totaloutstanding > 0
                     ? 'bg-amber-500/5'
                     : '';
 
                   return (
-                    <tr key={`${r.SupplierID}-${r.InvoiceYear}-${r.InvoiceMonth}`}
-                        className={`border-b transition-colors hover:bg-muted/40 ${rowBg}`}>
-                      <td className="px-4 py-3 font-medium">{r.SupplierName}</td>
+                    <tr
+                      key={`${r.supplierid}-${r.invoiceyear}-${r.invoicemonth}`}
+                      className={`border-b transition-colors hover:bg-muted/40 ${rowBg}`}
+                    >
+                      <td className="px-4 py-3 font-medium">{r.suppliername}</td>
                       <td className="px-4 py-3 text-muted-foreground">
-                        {r.MonthName} {r.InvoiceYear}
+                        {r.monthname} {r.invoiceyear}
                       </td>
-                      <td className="px-4 py-3 text-right">{r.TotalInvoices}</td>
-                      <td className="px-4 py-3 text-right">
-                        {formatCurrency(parseFloat(r.TotalInvoiced))}
-                      </td>
+                      <td className="px-4 py-3 text-right">{r.totalinvoices}</td>
+                      <td className="px-4 py-3 text-right">{formatCurrency(r.totalinvoiced)}</td>
                       <td className="px-4 py-3 text-right text-emerald-600 font-medium">
-                        {formatCurrency(parseFloat(r.TotalPaid))}
+                        {formatCurrency(r.totalpaid)}
                       </td>
                       <td className="px-4 py-3 text-right">
-                        {outstanding > 0 ? (
-                          <span className="text-amber-600 font-medium">{formatCurrency(outstanding)}</span>
+                        {r.totaloutstanding > 0 ? (
+                          <span className="text-amber-600 font-medium">{formatCurrency(r.totaloutstanding)}</span>
                         ) : (
                           <span className="text-muted-foreground">—</span>
                         )}
                       </td>
                       <td className="px-4 py-3 text-right">
-                        {disputed > 0 ? (
-                          <span className="text-destructive font-medium">{formatCurrency(disputed)}</span>
+                        {r.totaldisputed > 0 ? (
+                          <span className="text-destructive font-medium">{formatCurrency(r.totaldisputed)}</span>
                         ) : (
                           <span className="text-muted-foreground">—</span>
                         )}
                       </td>
                       <td className="px-4 py-3 text-center">
                         <span className="text-xs text-muted-foreground">
-                          {r.PaidCount}P · {r.ReceivedCount}R · {r.DisputedCount}D
+                          {r.paidcount}P · {r.receivedcount}R · {r.disputedcount}D
                         </span>
                       </td>
                     </tr>
@@ -225,7 +220,6 @@ const InvoiceTotalsReport = () => {
               )}
             </tbody>
 
-            {/* Totals footer */}
             {!isLoading && filteredRows.length > 0 && (
               <tfoot>
                 <tr className="border-t-2 bg-muted/50 font-semibold">
